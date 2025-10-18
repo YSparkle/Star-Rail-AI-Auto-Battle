@@ -1,3 +1,5 @@
+# 还在修改！没有完工！
+
 # Star-Rail-AI-Auto-Battle
 
 崩坏星穹铁道AI自动战斗系统
