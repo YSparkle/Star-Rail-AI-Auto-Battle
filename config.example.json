@@ -1,0 +1,35 @@
+{
+  "ai": {
+    "enabled": false,
+    "provider": "openai_compatible",
+    "api_key": "REPLACE_WITH_YOUR_KEY",
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-4o-mini",
+    "system_prompt": "你是《崩坏：星穹铁道》的战斗策略专家。请依据用户提供的角色/遗器/光锥以及敌人与模式，给出最优策略，并提供可选方案A/B（稳定 vs 极限）。",
+    "timeout": 60
+  },
+  "mode": "material_farm",
+  "preferences": {
+    "allow_reroll": true
+  },
+  "roster": [
+    {
+      "name": "主C示例",
+      "path": "Hunt",
+      "element": "Quantum",
+      "level": 80,
+      "eidolon": 0,
+      "base_stats": { "atk": 1000, "hp": 1200, "def": 600, "spd": 110 },
+      "relics": { "atk_percent": 0.58, "atk_flat": 120, "crit_rate": 0.35, "crit_dmg": 0.7, "speed": 12, "energy_regen": 0.12 },
+      "light_cone": { "name": "示例光锥", "level": 80, "superimpose": 1, "stats": { "atk_percent": 0.1, "crit_rate": 0.08 } },
+      "skill_levels": { "basic": 6, "skill": 10, "ult": 10, "talent": 10 }
+    }
+  ],
+  "enemy": {
+    "name": "敌人示例",
+    "level": 90,
+    "weaknesses": ["Quantum", "Imaginary"],
+    "buffs": ["受击增伤窗口"],
+    "notes": "可根据实际关卡填写祝福/环境增益"
+  }
+}

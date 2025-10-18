@@ -73,7 +73,11 @@ models/*.onnx
 data/screenshots/
 data/training/
 data/temp/
+data/memory/
 !data/.gitkeep
+
+# Local configs (do not commit secrets)
+config.json
 
 # Screenshots and temp files
 screenshots/
