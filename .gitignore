@@ -1,0 +1,92 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+.virtualenv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# PyCharm
+.idea/
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite3
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Model files
+models/*.pth
+models/*.pkl
+models/*.h5
+models/*.onnx
+!models/.gitkeep
+
+# Data files
+data/screenshots/
+data/training/
+data/temp/
+!data/.gitkeep
+
+# Screenshots and temp files
+screenshots/
+temp/
+*.png
+*.jpg
+*.jpeg
+!templates/*.png
+!docs/*.png
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Game specific
+game_data/
