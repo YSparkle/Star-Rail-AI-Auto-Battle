@@ -21,6 +21,7 @@ class AbyssStrategy(Strategy):
 
     def plan(self, ctx: StrategyContext) -> StrategyPlan:
         allow_reroll = bool(ctx.preferences.get("allow_reroll", True))
+        selected = (ctx.preferences.get("selected_option") or "").upper()
         options = [
             "A 稳定通关：安全优先，较少依赖凹点",
             "B 最小轮数：允许适度凹点（指定角色吃击、能量铺垫、击破时点微调）",
@@ -30,13 +31,16 @@ class AbyssStrategy(Strategy):
             "方案会明确击破顺序、控制安排、爆发窗口与能量规划。"
         )
         steps = self._heuristic_steps(ctx)
+        expected_rounds = 4
+        if selected == "B" and allow_reroll:
+            expected_rounds = 3
         plan = StrategyPlan(
             name="深渊 - 最小轮数方案",
             description=desc,
             options=options,
             recommends=("若追求一次性上分、防止翻车，推荐 A；若可接受重试以换更少轮数，选 B"),
             steps=steps,
-            requires_reroll=allow_reroll,
-            expected_rounds=4,
+            requires_reroll=(selected == "B" and allow_reroll),
+            expected_rounds=expected_rounds,
         )
         return plan

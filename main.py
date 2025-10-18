@@ -16,11 +16,14 @@ from src.config import load_config
 from src.ai import AIClient, AIConfig, AIProviderType
 from src.storage.memory import MemoryStore
 from src.models.character import character_from_config
+from src.models.enemy import enemy_from_config
+from src.models.combat import compute_turn_order, summarize_team_estimates
 from src.strategy import (
     StrategyManager,
     MaterialFarmStrategy,
     AbyssStrategy,
     StrategyContext,
+    CustomStrategy,
 )
 
 
@@ -47,6 +50,7 @@ class StarRailAutoBattle:
         self.strategy_manager = StrategyManager({
             "material_farm": MaterialFarmStrategy(),
             "abyss": AbyssStrategy(),
+            "custom": CustomStrategy(),
         })
         self.strategy_plan = None
 
@@ -80,12 +84,34 @@ class StarRailAutoBattle:
         characters = [character_from_config(c) for c in roster_cfg]
         computed_chars = [{"name": c.name, **c.computed} for c in characters]
 
+        # 计算敌人衍生属性
+        enemy_cfg = self.config.get("enemy", {})
+        enemy_obj = enemy_from_config(enemy_cfg or {})
+        computed_enemy = {
+            "name": enemy_obj.name,
+            **enemy_obj.computed,
+            "weaknesses": enemy_obj.weaknesses,
+            "resistances": enemy_obj.resistances,
+            "buffs": enemy_obj.buffs,
+        }
+
+        # 团队行动顺序与伤害估计
+        turn_order = compute_turn_order(computed_chars)
+        team_estimates = summarize_team_estimates(computed_chars)
+
+        computed_all = {
+            "characters": computed_chars,
+            "turn_order": turn_order,
+            "team_estimates": team_estimates,
+            "enemy": computed_enemy,
+        }
+
         ctx = StrategyContext(
             mode=self.config.get("mode", "material_farm"),
             preferences=self.config.get("preferences", {}),
             roster=roster_cfg,
-            enemy=self.config.get("enemy", {}),
-            computed={"characters": computed_chars},
+            enemy=enemy_cfg,
+            computed=computed_all,
         )
 
         # 生成基础方案（启用 AI 时请辅助生成详细可选策略）
@@ -103,9 +129,11 @@ class StarRailAutoBattle:
             ai_text = self.ai_client.summarize_to_plan(context_for_ai)
             self.memory.save("ai_strategy_text", {"plan": ai_text})
 
-        # 永久化保存角色与敌人信息，便于后续记忆
+        # 永久化保存角色、敌人与计算信息，便于后续记忆
         self.memory.save("characters", {"list": ctx.roster, "computed": computed_chars})
-        self.memory.save("enemy", ctx.enemy)
+        self.memory.save("enemy", enemy_cfg)
+        self.memory.save("computed", computed_all)
+
         if self.strategy_plan:
             self.memory.save("strategy_plan", {
                 "name": self.strategy_plan.name,
@@ -117,6 +145,11 @@ class StarRailAutoBattle:
                 "expected_rounds": self.strategy_plan.expected_rounds,
             })
 
+        # 记录用户偏好选择（如 A/B 策略）
+        selected = (self.config.get("preferences", {}).get("selected_option") or "").upper()
+        if selected in ("A", "B"):
+            self.memory.save("selected_option", {"value": selected})
+
         # 日志提示：手动切换模式
         self.logger.info("请在游戏中手动切换到目标模式界面，然后开始执行。")
         if self.strategy_plan:
@@ -126,6 +159,8 @@ class StarRailAutoBattle:
                 self.logger.info(f"方案 {i}: {opt}")
             if self.strategy_plan.recommends:
                 self.logger.info(f"推荐：{self.strategy_plan.recommends}")
+            if selected in ( "A", "B" ):
+                self.logger.info(f"已选择策略：{selected}（允许凹本: {bool(ctx.preferences.get('allow_reroll', True))}）")
 
     def initialize(self):
         """初始化系统"""
