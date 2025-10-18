@@ -90,7 +90,6 @@ Star-Rail-AI-Auto-Battle/
 
 ## 📖 文档
 
-- [新手入门指南](docs/新手入门指南.md)
 - [项目计划](PROJECT_PLAN.md)
 
 ## 🤝 贡献
