@@ -1,0 +1,39 @@
+{
+  "ai": {
+    "provider": "mock",
+    "api_key": "",
+    "base_url": "",
+    "model": "gpt-4o-mini",
+    "system_prompt": "你是星穹铁道战斗策划AI。根据队伍与敌人信息制定最优策略。",
+    "timeout_sec": 60
+  },
+  "mode": "material_farm",
+  "allow_rng_fishing": true,
+  "interactive_select": true,
+  "plan_choice": null,
+  "persist_memory": true,
+  "team": {
+    "characters": []
+  },
+  "enemies": {
+    "name": "默认敌人",
+    "level": 80,
+    "count": 3,
+    "weakness": [
+      "冰",
+      "量子"
+    ],
+    "base_stats": {
+      "hp": 20000,
+      "def": 1000,
+      "res": {
+        "冰": 0.2,
+        "量子": 0.2
+      }
+    },
+    "special_buffs": []
+  },
+  "abyss": {
+    "buffs": []
+  }
+}
