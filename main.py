@@ -5,10 +5,24 @@
 
 import time
 import logging
-from typing import Dict, List
+from typing import Dict, Optional
+
 from src.image_recognition.recognizer import ImageRecognizer
 from src.decision_engine.decision import BattleDecision
 from src.game_control.controller import GameController
+
+# 新增：配置、AI、策略与记忆存储
+from src.config import load_config
+from src.ai import AIClient, AIConfig, AIProviderType
+from src.storage.memory import MemoryStore
+from src.models.character import character_from_config
+from src.strategy import (
+    StrategyManager,
+    MaterialFarmStrategy,
+    AbyssStrategy,
+    StrategyContext,
+)
+
 
 class StarRailAutoBattle:
     """星穹铁道自动战斗主类"""
@@ -26,15 +40,100 @@ class StarRailAutoBattle:
         self.decision_engine = BattleDecision()
         self.game_controller = GameController()
 
+        # 新增：配置、AI、策略与记忆
+        self.config: Dict = {}
+        self.ai_client: Optional[AIClient] = None
+        self.memory = MemoryStore()
+        self.strategy_manager = StrategyManager({
+            "material_farm": MaterialFarmStrategy(),
+            "abyss": AbyssStrategy(),
+        })
+        self.strategy_plan = None
+
         # 战斗状态
         self.is_running = False
         self.battle_count = 0
         self.victory_count = 0
 
+    def _setup_ai(self):
+        ai_cfg = self.config.get("ai", {})
+        try:
+            cfg = AIConfig(
+                enabled=ai_cfg.get("enabled", False),
+                provider=AIProviderType(ai_cfg.get("provider", "openai_compatible")),
+                api_key=ai_cfg.get("api_key"),
+                base_url=ai_cfg.get("base_url", "https://api.openai.com/v1"),
+                model=ai_cfg.get("model", "gpt-4o-mini"),
+                system_prompt=ai_cfg.get("system_prompt"),
+                timeout=int(ai_cfg.get("timeout", 60)),
+                endpoint=ai_cfg.get("endpoint"),
+                headers=ai_cfg.get("headers"),
+            )
+        except Exception:
+            # provider 解析失败等情况，回落默认
+            cfg = AIConfig(enabled=False)
+        self.ai_client = AIClient(cfg)
+
+    def _prepare_strategy(self):
+        # 计算角色衍生属性
+        roster_cfg = self.config.get("roster", [])
+        characters = [character_from_config(c) for c in roster_cfg]
+        computed_chars = [{"name": c.name, **c.computed} for c in characters]
+
+        ctx = StrategyContext(
+            mode=self.config.get("mode", "material_farm"),
+            preferences=self.config.get("preferences", {}),
+            roster=roster_cfg,
+            enemy=self.config.get("enemy", {}),
+            computed={"characters": computed_chars},
+        )
+
+        # 生成基础方案（启用 AI 时请辅助生成详细可选策略）
+        self.strategy_plan = self.strategy_manager.plan(ctx)
+
+        # 如启用 AI，再生成更详细的文案供玩家阅读与选择
+        if self.ai_client and self.ai_client.is_available():
+            context_for_ai = {
+                "mode": ctx.mode,
+                "preferences": ctx.preferences,
+                "roster": ctx.roster,
+                "enemy": ctx.enemy,
+                "computed": ctx.computed,
+            }
+            ai_text = self.ai_client.summarize_to_plan(context_for_ai)
+            self.memory.save("ai_strategy_text", {"plan": ai_text})
+
+        # 永久化保存角色与敌人信息，便于后续记忆
+        self.memory.save("characters", {"list": ctx.roster, "computed": computed_chars})
+        self.memory.save("enemy", ctx.enemy)
+        if self.strategy_plan:
+            self.memory.save("strategy_plan", {
+                "name": self.strategy_plan.name,
+                "description": self.strategy_plan.description,
+                "options": self.strategy_plan.options,
+                "recommends": self.strategy_plan.recommends,
+                "steps": self.strategy_plan.steps,
+                "requires_reroll": self.strategy_plan.requires_reroll,
+                "expected_rounds": self.strategy_plan.expected_rounds,
+            })
+
+        # 日志提示：手动切换模式
+        self.logger.info("请在游戏中手动切换到目标模式界面，然后开始执行。")
+        if self.strategy_plan:
+            self.logger.info(f"已为模式 {ctx.mode} 生成策略：{self.strategy_plan.name}")
+            self.logger.info(f"策略说明：{self.strategy_plan.description}")
+            for i, opt in enumerate(self.strategy_plan.options, 1):
+                self.logger.info(f"方案 {i}: {opt}")
+            if self.strategy_plan.recommends:
+                self.logger.info(f"推荐：{self.strategy_plan.recommends}")
+
     def initialize(self):
         """初始化系统"""
         self.logger.info("正在初始化星穹铁道AI自动战斗系统...")
-        # TODO: 加载配置文件和模板图像
+        # 加载配置与模板
+        self.config = load_config()
+        self._setup_ai()
+        self._prepare_strategy()
         self.logger.info("系统初始化完成")
 
     def start_battle(self):
@@ -120,6 +219,7 @@ class StarRailAutoBattle:
             "win_rate": f"{win_rate:.1f}%"
         }
 
+
 def main():
     """主函数"""
     auto_battle = StarRailAutoBattle()
@@ -131,6 +231,7 @@ def main():
         auto_battle.logger.error(f"程序出错: {e}")
     finally:
         auto_battle.stop_battle()
+
 
 if __name__ == "__main__":
     main()

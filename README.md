@@ -43,11 +43,35 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+### 配置（可选，但推荐）
+
+- 复制示例配置：
+
+```bash
+cp config.example.json config.json
+```
+
+- 修改 config.json 填入你的 AI 提供商与密钥、模式、角色与敌人信息：
+  - ai.enabled: 是否启用 AI 生成详细策略
+  - ai.provider: openai_compatible 或自定义
+  - ai.api_key: 你的 API Key（不会被提交到版本库，已写入 .gitignore）
+  - ai.base_url + ai.model: 你的模型网关与模型名
+  - mode: material_farm（刷材料）或 abyss（深渊）等
+  - preferences.allow_reroll: 是否允许“凹”（为极限回合/更优循环而重试）
+  - roster: 角色 + 遗器/光锥/技能等信息（程序会自动计算衍生属性）
+  - enemy: 敌人与关卡信息（弱点/祝福/环境增益等）
+
 ### 运行程序
 
 ```bash
 python main.py
 ```
+
+程序启动后会：
+- 加载配置并计算角色衍生属性
+- 按模式生成基础策略（刷材料/深渊等模式分开设计）
+- 若启用 AI，会生成更详细的多方案文本（稳定/极限可选）并保存到 data/memory/
+- 日志提示你“请手动切换到游戏内目标模式界面”，然后开始自动战斗循环
 
 ## 📁 项目结构
 
@@ -55,27 +79,28 @@ python main.py
 Star-Rail-AI-Auto-Battle/
 ├── src/
 │   ├── image_recognition/    # 图像识别模块
-│   │   ├── __init__.py
-│   │   └── recognizer.py
-│   ├── decision_engine/      # AI决策引擎
-│   │   ├── __init__.py
-│   │   └── decision.py
+│   ├── decision_engine/      # 基础决策引擎
 │   ├── game_control/         # 游戏控制模块
-│   │   ├── __init__.py
-│   │   └── controller.py
+│   ├── ai/                   # AI 提供商与客户端（自定义 API Key / Base URL / 模型）
+│   ├── strategy/             # 分模式策略（刷材料/深渊等，独立设计）
+│   ├── storage/              # 本地记忆存储（JSON）
+│   ├── models/               # 数据结构与属性计算
 │   └── __init__.py
-├── docs/                     # 项目文档
-│   └── 新手入门指南.md
+├── config.example.json       # 配置示例（复制为 config.json）
 ├── main.py                   # 主程序入口
 ├── requirements.txt          # 依赖包列表
-├── PROJECT_PLAN.md          # 项目计划
-└── README.md                # 本文件
+├── PROJECT_PLAN.md           # 项目计划
+└── README.md                 # 本文件
 ```
 
 ## 🔧 核心功能
 
 - **图像识别**: 基于 OpenCV 的游戏界面识别
 - **智能决策**: 基于规则的战斗策略系统
+- **分模式策略**: 刷材料与深渊等模式分别设计策略逻辑
+- **AI 策略规划（可选）**: 支持自定义 API 提供商与 Key（OpenAI 兼容网关等），可配置 system prompt，
+  自动生成多套方案（稳定/极限“可凹”），供玩家选择
+- **本地记忆**: 自动保存角色/敌人与策略数据到 data/memory 便于复用
 - **游戏控制**: PyAutoGUI 实现的鼠标键盘模拟
 - **日志系统**: 完整的运行日志记录
 
