@@ -53,13 +53,16 @@ cp config.example.json config.json
 
 - 修改 config.json 填入你的 AI 提供商与密钥、模式、角色与敌人信息：
   - ai.enabled: 是否启用 AI 生成详细策略
-  - ai.provider: openai_compatible 或自定义
+  - ai.provider: openai_compatible 或 custom_http（OpenAI 兼容网关请选择 openai_compatible）
   - ai.api_key: 你的 API Key（不会被提交到版本库，已写入 .gitignore）
-  - ai.base_url + ai.model: 你的模型网关与模型名
-  - mode: material_farm（刷材料）或 abyss（深渊）等
+  - ai.base_url + ai.model: 兼容网关的基础地址与模型名（当 provider=openai_compatible）
+  - ai.endpoint + ai.headers: 自定义 HTTP 提供商的请求地址与额外请求头（当 provider=custom_http）
+  - ai.system_prompt: 系统提示词，可自定义要求输出多套策略（稳定/极限等）
+  - mode: material_farm（刷材料）、abyss（深渊）或 custom（自定义）
   - preferences.allow_reroll: 是否允许“凹”（为极限回合/更优循环而重试）
+  - preferences.selected_option: 选择策略 A（稳定）或 B（极限），不填则仅给出推荐
   - roster: 角色 + 遗器/光锥/技能等信息（程序会自动计算衍生属性）
-  - enemy: 敌人与关卡信息（弱点/祝福/环境增益等）
+  - enemy: 敌人与关卡信息（弱点/祝福/环境增益、可选 resistances/base_stats 等）
 
 ### 运行程序
 
@@ -68,8 +71,8 @@ python main.py
 ```
 
 程序启动后会：
-- 加载配置并计算角色衍生属性
-- 按模式生成基础策略（刷材料/深渊等模式分开设计）
+- 加载配置并计算角色与敌人的衍生属性（速度/估算伤害/弱点等），生成首轮行动顺序与队伍估算，并保存到 data/memory/
+- 按模式生成基础策略（刷材料/深渊/自定义等模式分开设计）
 - 若启用 AI，会生成更详细的多方案文本（稳定/极限可选）并保存到 data/memory/
 - 日志提示你“请手动切换到游戏内目标模式界面”，然后开始自动战斗循环
 

@@ -6,11 +6,14 @@
     "base_url": "https://api.openai.com/v1",
     "model": "gpt-4o-mini",
     "system_prompt": "你是《崩坏：星穹铁道》的战斗策略专家。请依据用户提供的角色/遗器/光锥以及敌人与模式，给出最优策略，并提供可选方案A/B（稳定 vs 极限）。",
-    "timeout": 60
+    "timeout": 60,
+    "endpoint": null,
+    "headers": {}
   },
   "mode": "material_farm",
   "preferences": {
-    "allow_reroll": true
+    "allow_reroll": true,
+    "selected_option": "A"
   },
   "roster": [
     {
@@ -29,7 +32,9 @@
     "name": "敌人示例",
     "level": 90,
     "weaknesses": ["Quantum", "Imaginary"],
+    "resistances": {"Quantum": 0.2, "Fire": 0.1},
     "buffs": ["受击增伤窗口"],
+    "base_stats": { "hp": 300000, "def": 800, "spd": 98, "toughness": 240 },
     "notes": "可根据实际关卡填写祝福/环境增益"
   }
 }

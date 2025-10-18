@@ -21,10 +21,13 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "model": "gpt-4o-mini",
         "system_prompt": None,
         "timeout": 60,
+        "endpoint": None,   # 仅 custom_http 使用
+        "headers": {},      # 仅 custom_http 使用
     },
     "mode": "material_farm",  # material_farm | abyss | custom
     "preferences": {
-        "allow_reroll": True  # 是否允许凹本
+        "allow_reroll": True,   # 是否允许凹本
+        "selected_option": None # 选择的策略："A"(稳定) 或 "B"(极限)，不填则仅给出推荐
     },
     "roster": [],  # 用户的角色与装备信息
     "enemy": {},   # 敌人/关卡信息

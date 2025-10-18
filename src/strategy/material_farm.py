@@ -19,6 +19,7 @@ class MaterialFarmStrategy(Strategy):
 
     def plan(self, ctx: StrategyContext) -> StrategyPlan:
         allow_reroll = bool(ctx.preferences.get("allow_reroll", True))
+        selected = (ctx.preferences.get("selected_option") or "").upper()
         options = [
             "A 稳定速刷：不开额外凹点，以可控循环为主",
             "B 极限速刷：允许凹点（例如吃特定攻击回能、追击触发等）",
@@ -28,13 +29,16 @@ class MaterialFarmStrategy(Strategy):
             "在保证循环不断的前提下争取开场爆发与能量管理。"
         )
         steps = self._heuristic_steps(ctx)
+        expected_rounds = 2
+        if selected == "B" and allow_reroll:
+            expected_rounds = 1
         plan = StrategyPlan(
             name="刷材料 - 快速周回方案",
             description=desc,
             options=options,
             recommends=("若队伍循环稳定，建议选择A，避免反复重开；追求极限时间可选B"),
             steps=steps,
-            requires_reroll=allow_reroll,
-            expected_rounds=2,
+            requires_reroll=(selected == "B" and allow_reroll),
+            expected_rounds=expected_rounds,
         )
         return plan
