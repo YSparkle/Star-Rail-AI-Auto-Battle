@@ -133,6 +133,9 @@ class StarRailAutoBattle:
         self.memory.save("characters", {"list": ctx.roster, "computed": computed_chars})
         self.memory.save("enemy", enemy_cfg)
         self.memory.save("computed", computed_all)
+        # 同步保存 AI 与偏好配置，便于后续上下文
+        self.memory.save("ai_config", self.config.get("ai", {}))
+        self.memory.save("preferences", self.config.get("preferences", {}))
 
         if self.strategy_plan:
             self.memory.save("strategy_plan", {
