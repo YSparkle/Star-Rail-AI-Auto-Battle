@@ -31,6 +31,16 @@ class MaterialFarmStrategy(Strategy):
         )
         steps = self._heuristic_steps(ctx)
 
+        # 如选择极限方案且允许凹，追加玩家可配置的凹点偏好
+        if selected == "B" and allow_reroll:
+            rr = ctx.preferences.get("reroll_settings", {}) or {}
+            bait_target = rr.get("bait_target") or "指定角色"
+            bait_condition = rr.get("bait_condition") or "满足指定敌方攻击条件"
+            max_retries = rr.get("max_retries", 5)
+            steps.append(
+                f"凹策略（可选）：诱导敌方将攻击打到 {bait_target}（条件：{bait_condition}），以铺能/触发被动；最大重试 {max_retries} 次"
+            )
+
         # 基于队伍与敌人数据的粗略回合估计
         expected_rounds = estimate_expected_rounds(ctx.computed)
         if selected == "B" and allow_reroll:

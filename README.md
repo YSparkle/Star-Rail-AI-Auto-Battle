@@ -58,6 +58,7 @@ cp config.example.json config.json
   - ai.base_url + ai.model: 兼容网关的基础地址与模型名（当 provider=openai_compatible）
   - ai.endpoint + ai.headers: 自定义 HTTP 提供商的请求地址与额外请求头（当 provider=custom_http）
   - ai.system_prompt: 系统提示词，可自定义要求输出多套策略（稳定/极限等）
+  - run.plan_only: 若为 true，则仅生成策略和保存记忆，不启动自动战斗
   - mode: material_farm（刷材料）、abyss（深渊）或 custom（自定义）
   - preferences.allow_reroll: 是否允许“凹”（为极限回合/更优循环而重试）
   - preferences.selected_option: 选择策略 A（稳定）或 B（极限），不填则仅给出推荐
@@ -77,6 +78,7 @@ python main.py
 - 按模式生成基础策略（刷材料/深渊/自定义等模式分开设计）
 - 若启用 AI，会生成更详细的多方案文本（稳定/极限可选）并保存到 data/memory/，并在日志中提示文案保存路径
 - 日志提示你“请手动切换到游戏内目标模式界面”，然后开始自动战斗循环
+- 若配置了 run.plan_only=true，则仅生成策略与记忆（含 planning_summary.json），不会启动自动战斗，便于你手动执行或进一步微调
 
 ## 📁 项目结构
 
