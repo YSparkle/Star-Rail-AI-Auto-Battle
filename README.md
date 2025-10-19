@@ -61,6 +61,7 @@ cp config.example.json config.json
   - mode: material_farm（刷材料）、abyss（深渊）或 custom（自定义）
   - preferences.allow_reroll: 是否允许“凹”（为极限回合/更优循环而重试）
   - preferences.selected_option: 选择策略 A（稳定）或 B（极限），不填则仅给出推荐
+  - preferences.reroll_settings: 可选，细化“凹”的偏好，如 {"max_retries": 10, "bait_target": "主C示例", "bait_condition": "第一波吃单体"}
   - roster: 角色 + 遗器/光锥/技能等信息（程序会自动计算衍生属性）
   - enemy: 敌人与关卡信息（弱点/祝福/环境增益、可选 resistances/base_stats 等）
 
@@ -72,8 +73,9 @@ python main.py
 
 程序启动后会：
 - 加载配置并计算角色与敌人的衍生属性（速度/估算伤害/弱点等），生成首轮行动顺序与队伍估算，并保存到 data/memory/
+- 进行队伍 vs 敌人的契合度分析（元素覆盖、弱点命中比例、敌方对队伍元素平均抗性、队伍速度概况等），在日志中展示
 - 按模式生成基础策略（刷材料/深渊/自定义等模式分开设计）
-- 若启用 AI，会生成更详细的多方案文本（稳定/极限可选）并保存到 data/memory/
+- 若启用 AI，会生成更详细的多方案文本（稳定/极限可选）并保存到 data/memory/，并在日志中提示文案保存路径
 - 日志提示你“请手动切换到游戏内目标模式界面”，然后开始自动战斗循环
 
 ## 📁 项目结构

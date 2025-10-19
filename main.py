@@ -17,7 +17,7 @@ from src.ai import AIClient, AIConfig, AIProviderType
 from src.storage.memory import MemoryStore
 from src.models.character import character_from_config
 from src.models.enemy import enemy_from_config
-from src.models.combat import compute_turn_order, summarize_team_estimates
+from src.models.combat import compute_turn_order, summarize_team_estimates, analyze_team_enemy_synergy
 from src.strategy import (
     StrategyManager,
     MaterialFarmStrategy,
@@ -98,12 +98,14 @@ class StarRailAutoBattle:
         # 团队行动顺序与伤害估计
         turn_order = compute_turn_order(computed_chars)
         team_estimates = summarize_team_estimates(computed_chars)
+        synergy = analyze_team_enemy_synergy(roster_cfg, computed_chars, enemy_cfg)
 
         computed_all = {
             "characters": computed_chars,
             "turn_order": turn_order,
             "team_estimates": team_estimates,
             "enemy": computed_enemy,
+            "synergy": synergy,
         }
 
         ctx = StrategyContext(
@@ -127,7 +129,8 @@ class StarRailAutoBattle:
                 "computed": ctx.computed,
             }
             ai_text = self.ai_client.summarize_to_plan(context_for_ai)
-            self.memory.save("ai_strategy_text", {"plan": ai_text})
+            path = self.memory.save("ai_strategy_text", {"plan": ai_text})
+            self.logger.info(f"AI 策略文案已保存: {path}")
 
         # 永久化保存角色、敌人与计算信息，便于后续记忆
         self.memory.save("characters", {"list": ctx.roster, "computed": computed_chars})
@@ -153,7 +156,14 @@ class StarRailAutoBattle:
         if selected in ("A", "B"):
             self.memory.save("selected_option", {"value": selected})
 
-        # 日志提示：手动切换模式
+        # 日志提示：基础契合度与手动切换模式
+        syn = computed_all.get("synergy", {})
+        self.logger.info(
+            f"元素覆盖: {syn.get('element_counts', {})} | 弱点命中: {syn.get('weakness_match_names', [])} | 覆盖率: {syn.get('weakness_match_ratio')}"
+        )
+        self.logger.info(
+            f"敌方对队伍元素的平均抗性: {syn.get('avg_enemy_resistance_vs_team')} | 平均/最高速度: {syn.get('avg_speed')}/{syn.get('max_speed')}"
+        )
         self.logger.info("请在游戏中手动切换到目标模式界面，然后开始执行。")
         if self.strategy_plan:
             self.logger.info(f"已为模式 {ctx.mode} 生成策略：{self.strategy_plan.name}")

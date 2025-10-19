@@ -4,7 +4,7 @@
 """
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 
 
 def compute_turn_order(characters: List[Dict[str, float]]) -> List[Tuple[str, float]]:
@@ -54,3 +54,61 @@ def summarize_team_estimates(characters: List[Dict[str, float]]) -> Dict[str, Di
         est = estimate_damage_profile(c)
         result[name] = est
     return result
+
+
+def analyze_team_enemy_synergy(
+    roster: List[Dict[str, Any]],
+    computed_chars: List[Dict[str, float]],
+    enemy: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    计算队伍与敌人的基础“契合度/克制关系”指标，用于辅助策略规划：
+    - 元素覆盖：队伍中与敌方弱点相同元素的角色数量与占比
+    - 元素抗性：按队伍元素在敌方抗性表中的平均值（负值代表易伤）
+    - 路径分布：队伍各命途（path）的数量，用于判断输出/生存/辅助占比
+    - 速度概况：队伍平均/最高速度，辅助安排首轮行动
+    """
+    weaknesses = set((enemy or {}).get("weaknesses", []) or [])
+    resistances = (enemy or {}).get("resistances", {}) or {}
+
+    element_counts: Dict[str, int] = {}
+    path_counts: Dict[str, int] = {}
+    team_elements: List[str] = []
+
+    for raw in roster:
+        elem = raw.get("element", "unknown") or "unknown"
+        path = raw.get("path", "unknown") or "unknown"
+        team_elements.append(elem)
+        element_counts[elem] = element_counts.get(elem, 0) + 1
+        path_counts[path] = path_counts.get(path, 0) + 1
+
+    match_names: List[str] = []
+    for raw in roster:
+        if (raw.get("element") or "") in weaknesses:
+            match_names.append(raw.get("name", "unknown"))
+
+    team_size = max(1, len(roster))
+    weakness_match_ratio = round(len(match_names) / team_size, 3)
+
+    # 敌方抗性：对团队元素取平均
+    if team_elements:
+        avg_res = 0.0
+        for e in team_elements:
+            avg_res += float(resistances.get(e, 0.0) or 0.0)
+        avg_resistance = round(avg_res / len(team_elements), 4)
+    else:
+        avg_resistance = 0.0
+
+    speeds = [float(c.get("spd", 0.0) or 0.0) for c in computed_chars]
+    avg_speed = round(sum(speeds) / max(1, len(speeds)), 2) if speeds else 0.0
+    max_speed = round(max(speeds), 2) if speeds else 0.0
+
+    return {
+        "element_counts": element_counts,
+        "path_counts": path_counts,
+        "weakness_match_names": match_names,
+        "weakness_match_ratio": weakness_match_ratio,
+        "avg_enemy_resistance_vs_team": avg_resistance,
+        "avg_speed": avg_speed,
+        "max_speed": max_speed,
+    }

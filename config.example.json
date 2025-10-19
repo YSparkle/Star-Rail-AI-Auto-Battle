@@ -13,7 +13,8 @@
   "mode": "material_farm",
   "preferences": {
     "allow_reroll": true,
-    "selected_option": "A"
+    "selected_option": "A",
+    "reroll_settings": { "max_retries": 5, "bait_target": "主C示例", "bait_condition": "第一波吃单体" }
   },
   "roster": [
     {
