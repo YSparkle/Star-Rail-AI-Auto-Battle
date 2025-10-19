@@ -27,6 +27,15 @@ class CustomStrategy(Strategy):
         desc = (
             "自定义模式的通用方案框架。请结合具体关卡机制（如地形/环境/祝福）微调。"
         )
+        steps = self._heuristic_steps(ctx)
+        if selected == "B" and allow_reroll:
+            rr = ctx.preferences.get("reroll_settings", {}) or {}
+            bait_target = rr.get("bait_target") or "指定角色"
+            bait_condition = rr.get("bait_condition") or "满足指定敌方攻击条件"
+            max_retries = rr.get("max_retries", 5)
+            steps.append(
+                f"凹策略（可选）：诱导 {bait_target} 吃关键一击（条件：{bait_condition}），以铺能/控场；最大重试 {max_retries} 次"
+            )
         expected_rounds = 3
         if selected == "B" and allow_reroll:
             expected_rounds = 2
@@ -37,7 +46,7 @@ class CustomStrategy(Strategy):
             recommends=(
                 "若对流程不熟或不追求最少轮数，推荐 A；想要压缩回合可选择 B"
             ),
-            steps=self._heuristic_steps(ctx),
+            steps=steps,
             requires_reroll=(selected == "B" and allow_reroll),
             expected_rounds=expected_rounds,
         )

@@ -10,6 +10,9 @@
     "endpoint": null,
     "headers": {}
   },
+  "run": {
+    "plan_only": false
+  },
   "mode": "material_farm",
   "preferences": {
     "allow_reroll": true,

@@ -53,6 +53,8 @@ class StarRailAutoBattle:
             "custom": CustomStrategy(),
         })
         self.strategy_plan = None
+        # 仅规划模式（不启动自动战斗）
+        self.plan_only = False
 
         # 战斗状态
         self.is_running = False
@@ -120,6 +122,7 @@ class StarRailAutoBattle:
         self.strategy_plan = self.strategy_manager.plan(ctx)
 
         # 如启用 AI，再生成更详细的文案供玩家阅读与选择
+        ai_text_path = None
         if self.ai_client and self.ai_client.is_available():
             context_for_ai = {
                 "mode": ctx.mode,
@@ -129,8 +132,8 @@ class StarRailAutoBattle:
                 "computed": ctx.computed,
             }
             ai_text = self.ai_client.summarize_to_plan(context_for_ai)
-            path = self.memory.save("ai_strategy_text", {"plan": ai_text})
-            self.logger.info(f"AI 策略文案已保存: {path}")
+            ai_text_path = self.memory.save("ai_strategy_text", {"plan": ai_text})
+            self.logger.info(f"AI 策略文案已保存: {ai_text_path}")
 
         # 永久化保存角色、敌人与计算信息，便于后续记忆
         self.memory.save("characters", {"list": ctx.roster, "computed": computed_chars})
@@ -175,13 +178,27 @@ class StarRailAutoBattle:
             if selected in ( "A", "B" ):
                 self.logger.info(f"已选择策略：{selected}（允许凹本: {bool(ctx.preferences.get('allow_reroll', True))}）")
 
+        # 汇总保存一个规划总览，便于查看
+        summary = {
+            "mode": ctx.mode,
+            "preferences": ctx.preferences,
+            "computed": computed_all,
+            "strategy_plan": self.strategy_plan.__dict__ if self.strategy_plan else None,
+            "ai_text_file": ai_text_path,
+        }
+        self.memory.save("planning_summary", summary)
+
     def initialize(self):
         """初始化系统"""
         self.logger.info("正在初始化星穹铁道AI自动战斗系统...")
         # 加载配置与模板
         self.config = load_config()
+        # 读取运行模式
+        self.plan_only = bool(self.config.get("run", {}).get("plan_only", False))
         self._setup_ai()
         self._prepare_strategy()
+        if self.plan_only:
+            self.logger.info("已启用仅规划模式：将生成策略与记忆，不会启动自动战斗。")
         self.logger.info("系统初始化完成")
 
     def start_battle(self):
@@ -274,6 +291,9 @@ def main():
 
     try:
         auto_battle.initialize()
+        if auto_battle.plan_only:
+            # 仅规划模式下直接退出（已保存策略与记忆）
+            return
         auto_battle.start_battle()
     except Exception as e:
         auto_battle.logger.error(f"程序出错: {e}")

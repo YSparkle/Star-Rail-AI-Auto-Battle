@@ -24,6 +24,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "endpoint": None,   # 仅 custom_http 使用
         "headers": {},      # 仅 custom_http 使用
     },
+    # 运行模式：plan_only 为 true 时仅生成策略与保存记忆，不启动自动战斗
+    "run": {
+        "plan_only": False
+    },
     "mode": "material_farm",  # material_farm | abyss | custom
     "preferences": {
         "allow_reroll": True,   # 是否允许凹本
@@ -53,6 +57,10 @@ def load_config() -> Dict[str, Any]:
             pref = DEFAULT_CONFIG["preferences"].copy()
             pref.update(cfg.get("preferences", {}))
             cfg["preferences"] = pref
+            # run 子项也做合并
+            run = DEFAULT_CONFIG["run"].copy()
+            run.update(cfg.get("run", {}))
+            cfg["run"] = run
             return cfg
         except Exception as e:
             logger.error(f"读取配置失败，使用默认配置: {e}")

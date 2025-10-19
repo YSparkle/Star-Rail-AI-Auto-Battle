@@ -33,6 +33,16 @@ class AbyssStrategy(Strategy):
         )
         steps = self._heuristic_steps(ctx)
 
+        # 如选择极限方案且允许凹，追加玩家可配置的凹点偏好
+        if selected == "B" and allow_reroll:
+            rr = ctx.preferences.get("reroll_settings", {}) or {}
+            bait_target = rr.get("bait_target") or "指定角色"
+            bait_condition = rr.get("bait_condition") or "满足指定敌方攻击条件"
+            max_retries = rr.get("max_retries", 5)
+            steps.append(
+                f"凹策略（可选）：诱导 {bait_target} 吃关键一击（条件：{bait_condition}），以触发祝福/能量铺垫；最大重试 {max_retries} 次"
+            )
+
         # 深渊通常更复杂，基于刷本估计基础上加一回合作为保守估算
         expected_rounds = max(1, estimate_expected_rounds(ctx.computed) + 1)
         if selected == "B" and allow_reroll:
