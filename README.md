@@ -68,8 +68,29 @@ cp config.example.json config.json
 
 ### 运行程序
 
+- 命令行/自动运行（根据 config.json 启动主循环）：
+
 ```bash
 python main.py
+```
+
+- 图形界面启动（推荐）：
+
+```bash
+python app.py
+```
+
+图形界面会弹出一个窗口用于：
+- 配置 AI 提供商 / API Key / 模型 / System Prompt（支持 OpenAI 兼容与自定义 HTTP）
+- 选择模式（刷材料/深渊/自定义）与偏好（是否凹本、A/B 方案、凹点细节）
+- 粘贴队伍与敌人 JSON，点击“生成策略（仅规划）”后会计算衍生值并保存记忆
+- 也可直接“开始自动战斗”（需你先在游戏内切到对应模式界面）
+
+可选：若需要打包为可执行程序（Windows .exe 等），可以使用 PyInstaller：
+
+```bash
+pip install pyinstaller
+pyinstaller -F -w app.py
 ```
 
 程序启动后会：
