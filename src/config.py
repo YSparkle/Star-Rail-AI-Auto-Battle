@@ -49,6 +49,10 @@ def load_config() -> Dict[str, Any]:
             ai = DEFAULT_CONFIG["ai"].copy()
             ai.update(cfg.get("ai", {}))
             cfg["ai"] = ai
+            # preferences 子项也做合并，避免缺项
+            pref = DEFAULT_CONFIG["preferences"].copy()
+            pref.update(cfg.get("preferences", {}))
+            cfg["preferences"] = pref
             return cfg
         except Exception as e:
             logger.error(f"读取配置失败，使用默认配置: {e}")

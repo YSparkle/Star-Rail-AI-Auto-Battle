@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 from .base import Strategy, StrategyPlan, StrategyContext
+from .utils import estimate_expected_rounds
 
 
 class AbyssStrategy(Strategy):
@@ -31,9 +32,12 @@ class AbyssStrategy(Strategy):
             "方案会明确击破顺序、控制安排、爆发窗口与能量规划。"
         )
         steps = self._heuristic_steps(ctx)
-        expected_rounds = 4
+
+        # 深渊通常更复杂，基于刷本估计基础上加一回合作为保守估算
+        expected_rounds = max(1, estimate_expected_rounds(ctx.computed) + 1)
         if selected == "B" and allow_reroll:
-            expected_rounds = 3
+            expected_rounds = max(1, expected_rounds - 1)
+
         plan = StrategyPlan(
             name="深渊 - 最小轮数方案",
             description=desc,

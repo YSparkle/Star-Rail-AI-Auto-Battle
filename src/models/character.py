@@ -73,6 +73,12 @@ class Character:
             energy_regen += s.energy_regen
             break_effect += s.break_effect
 
+        # 辅助衍生指标
+        crit_factor = 1.0 + crit_rate * crit_dmg
+        # 极简 EHP 估计：考虑防御提供的减伤（占位公式）
+        ehp = hp * (1.0 + defense / 1000.0)
+        burst_ceiling = atk * crit_factor * 2.0
+
         self.computed = {
             "atk": round(atk, 2),
             "hp": round(hp, 2),
@@ -82,6 +88,10 @@ class Character:
             "crit_dmg": round(crit_dmg, 4),
             "energy_regen": round(energy_regen, 4),
             "break_effect": round(break_effect, 4),
+            # 额外衍生
+            "crit_factor": round(crit_factor, 4),
+            "ehp": round(ehp, 2),
+            "burst_ceiling": round(burst_ceiling, 2),
         }
         return self.computed
 

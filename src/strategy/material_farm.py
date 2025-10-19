@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 from .base import Strategy, StrategyPlan, StrategyContext
+from .utils import estimate_expected_rounds
 
 
 class MaterialFarmStrategy(Strategy):
@@ -29,9 +30,13 @@ class MaterialFarmStrategy(Strategy):
             "在保证循环不断的前提下争取开场爆发与能量管理。"
         )
         steps = self._heuristic_steps(ctx)
-        expected_rounds = 2
+
+        # 基于队伍与敌人数据的粗略回合估计
+        expected_rounds = estimate_expected_rounds(ctx.computed)
         if selected == "B" and allow_reroll:
-            expected_rounds = 1
+            # 允许适度下修一回合作为“凹”带来的收益上限
+            expected_rounds = max(1, expected_rounds - 1)
+
         plan = StrategyPlan(
             name="刷材料 - 快速周回方案",
             description=desc,
