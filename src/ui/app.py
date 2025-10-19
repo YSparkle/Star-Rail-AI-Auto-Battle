@@ -374,6 +374,42 @@ class PlanFrame(ttk.Frame):
                 for name, spd in turn:
                     lines.append(f"    - {name}（SPD {spd}）")
 
+            # 角色计算详情
+            chars = (comp or {}).get("characters", []) or []
+            if chars:
+                lines.append("")
+                lines.append("角色计算详情：")
+                for c in chars:
+                    cname = c.get("name", "unknown")
+                    lines.append(f"  - {cname}")
+                    metrics = [
+                        "atk","hp","def","spd","crit_rate","crit_dmg",
+                        "energy_regen","break_effect","crit_factor","ehp","burst_ceiling",
+                    ]
+                    for m in metrics:
+                        if m in c and c.get(m) is not None:
+                            lines.append(f"      {m}: {c.get(m)}")
+
+            # 队伍伤害估算
+            team_est = (comp or {}).get("team_estimates", {}) or {}
+            if team_est:
+                lines.append("")
+                lines.append("队伍伤害估算：")
+                for nm, est in team_est.items():
+                    lines.append(f"  - {nm}: avg_hit={est.get('avg_hit')}, burst_potential={est.get('burst_potential')}")
+
+            # 敌人信息
+            enemy = (comp or {}).get("enemy", {}) or {}
+            lines.append("")
+            lines.append("敌人信息：")
+            lines.append(f"  名称: {enemy.get('name')}")
+            lines.append(
+                f"  属性: HP {enemy.get('hp')}, DEF {enemy.get('def')}, SPD {enemy.get('spd')}, Toughness {enemy.get('toughness')}"
+            )
+            lines.append(f"  弱点: {enemy.get('weaknesses')}")
+            lines.append(f"  抗性: {enemy.get('resistances')}")
+            lines.append(f"  Buffs: {enemy.get('buffs')}")
+
             # 如果 AI 有更详细文案
             if ai_text:
                 lines.append("")
