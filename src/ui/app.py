@@ -298,9 +298,10 @@ class DataFrame(ttk.Frame):
 
 
 class PlanFrame(ttk.Frame):
-    def __init__(self, master, state: AppState):
+    def __init__(self, master, state: AppState, frames: Optional[Dict[str, Any]] = None):
         super().__init__(master)
         self.state = state
+        self.frames = frames or {}
 
         self.btn_compute = ttk.Button(self, text="生成策略（仅规划）", command=self.on_compute)
         self.btn_compute.pack(anchor="w", padx=8, pady=6)
@@ -311,9 +312,25 @@ class PlanFrame(ttk.Frame):
         self.btn_start = ttk.Button(self, text="开始自动战斗（需要先切到对应界面）", command=self.on_start)
         self.btn_start.pack(anchor="e", padx=8, pady=6)
 
+    def _gather_config(self) -> Dict[str, Any]:
+        # 尽可能从各个面板收集最新的表单数据，更新到 state.config
+        cfg = self.state.config
+        try:
+            if "config" in self.frames and hasattr(self.frames["config"], "export_to_config"):
+                cfg = self.frames["config"].export_to_config()
+            if "prefs" in self.frames and hasattr(self.frames["prefs"], "export_to_config"):
+                cfg = self.frames["prefs"].export_to_config(cfg)
+            if "data" in self.frames and hasattr(self.frames["data"], "export_to_config"):
+                cfg = self.frames["data"].export_to_config(cfg)
+        finally:
+            self.state.config = cfg
+        return cfg
+
     def on_compute(self):
         try:
-            # 先刷新 AI 客户端
+            # 先收集并应用最新配置
+            self._gather_config()
+            # 刷新 AI 客户端
             self.state.ensure_ai()
             # 计算并生成计划
             result = self.state.compute_and_plan()
@@ -350,6 +367,12 @@ class PlanFrame(ttk.Frame):
             lines.append(f"  弱点命中：{syn.get('weakness_match_names', [])} / 覆盖率 {syn.get('weakness_match_ratio')}")
             lines.append(f"  敌方对队伍元素的平均抗性：{syn.get('avg_enemy_resistance_vs_team')}")
             lines.append(f"  速度概况：平均 {syn.get('avg_speed')} / 最高 {syn.get('max_speed')}")
+            # 展示首轮行动顺序
+            turn = (comp or {}).get("turn_order", []) or []
+            if turn:
+                lines.append("  首轮行动顺序：")
+                for name, spd in turn:
+                    lines.append(f"    - {name}（SPD {spd}）")
 
             # 如果 AI 有更详细文案
             if ai_text:
@@ -362,8 +385,11 @@ class PlanFrame(ttk.Frame):
             messagebox.showerror("错误", f"生成策略失败：{e}")
 
     def on_start(self):
-        # 将当前 UI 配置保存到磁盘，并基于该配置启动主循环
+        # 将当前 UI 配置保存到内存，并基于该配置启动主循环
         try:
+            # 先收集并应用最新配置
+            self._gather_config()
+
             self.state.auto = StarRailAutoBattle()
             self.state.auto.config = self.state.config
             self.state.auto._setup_ai()
@@ -446,13 +472,12 @@ def run_app():
     frames: Dict[str, Any] = {}
 
     frm_config = ConfigFrame(notebook, state)
-    frm_prefs = PrefsFrame(notebook, state)
-    frm_data = DataFrame(notebook, state)
-    frm_plan = PlanFrame(notebook, state)
-
     frames["config"] = frm_config
+    frm_prefs = PrefsFrame(notebook, state)
     frames["prefs"] = frm_prefs
+    frm_data = DataFrame(notebook, state)
     frames["data"] = frm_data
+    frm_plan = PlanFrame(notebook, state, frames)
     frames["plan"] = frm_plan
 
     notebook.add(frm_config, text="1. 配置与模式")
