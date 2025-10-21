@@ -21,7 +21,8 @@
     "oem": 3,
     "threshold": 180,
     "invert": false,
-    "blur": 1
+    "blur": 1,
+    "vision_prompt": "请阅读这张游戏截图中指定区域的所有可见文字，尽量按自然阅读顺序输出，保留数值、百分比、词条与段落。"
   },
   "ui_regions": {
     "character_stats": [100, 100, 400, 300],

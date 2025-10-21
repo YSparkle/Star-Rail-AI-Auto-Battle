@@ -317,8 +317,9 @@ class ScanFrame(ttk.Frame):
         ui_cfg = state.config.get("ui_regions", {})
 
         # OCR 配置表单
-        group_ocr = ttk.LabelFrame(self, text="OCR 识别设置（Tesseract）")
+        group_ocr = ttk.LabelFrame(self, text="OCR 识别设置（Tesseract 或 AI 视觉）")
         group_ocr.pack(fill=tk.X, padx=8, pady=6)
+        self.var_ocr_provider = tk.StringVar(value=ocr_cfg.get("provider", "tesseract"))
         self.var_tess_path = tk.StringVar(value=ocr_cfg.get("tesseract_path") or "")
         self.var_lang = tk.StringVar(value=ocr_cfg.get("lang", "chi_sim+eng"))
         self.var_psm = tk.IntVar(value=int(ocr_cfg.get("psm", 6)))
@@ -326,22 +327,30 @@ class ScanFrame(ttk.Frame):
         self.var_threshold = tk.IntVar(value=int(ocr_cfg.get("threshold", 180)))
         self.var_invert = tk.BooleanVar(value=bool(ocr_cfg.get("invert", False)))
         self.var_blur = tk.IntVar(value=int(ocr_cfg.get("blur", 1)))
+        self.var_vision_prompt = tk.StringVar(value=ocr_cfg.get("vision_prompt", ""))
 
-        ttk.Label(group_ocr, text="Tesseract 路径").grid(row=0, column=0, sticky="e")
-        ttk.Entry(group_ocr, textvariable=self.var_tess_path, width=48).grid(row=0, column=1, sticky="we")
-        ttk.Label(group_ocr, text="语言(lang)").grid(row=1, column=0, sticky="e")
-        ttk.Entry(group_ocr, textvariable=self.var_lang, width=24).grid(row=1, column=1, sticky="w")
-        ttk.Label(group_ocr, text="PSM").grid(row=2, column=0, sticky="e")
-        ttk.Spinbox(group_ocr, from_=3, to=13, textvariable=self.var_psm, width=6).grid(row=2, column=1, sticky="w")
-        ttk.Label(group_ocr, text="OEM").grid(row=2, column=2, sticky="e")
+        ttk.Label(group_ocr, text="Provider").grid(row=0, column=0, sticky="e")
+        ttk.Combobox(group_ocr, textvariable=self.var_ocr_provider, values=["tesseract", "ai_vision"], width=16).grid(row=0, column=1, sticky="w")
+
+        ttk.Label(group_ocr, text="Tesseract 路径").grid(row=1, column=0, sticky="e")
+        ttk.Entry(group_ocr, textvariable=self.var_tess_path, width=48).grid(row=1, column=1, columnspan=3, sticky="we")
+        ttk.Label(group_ocr, text="语言(lang)").grid(row=2, column=0, sticky="e")
+        ttk.Entry(group_ocr, textvariable=self.var_lang, width=24).grid(row=2, column=1, sticky="w")
+        ttk.Label(group_ocr, text="PSM").grid(row=2, column=2, sticky="e")
+        ttk.Spinbox(group_ocr, from_=3, to=13, textvariable=self.var_psm, width=6).grid(row=2, column=3, sticky="w")
+        ttk.Label(group_ocr, text="OEM").grid(row=3, column=0, sticky="e")
         self.var_oem_widget = ttk.Spinbox(group_ocr, from_=0, to=3, textvariable=self.var_oem, width=6)
-        self.var_oem_widget.grid(row=2, column=3, sticky="w")
-        ttk.Label(group_ocr, text="二值阈值").grid(row=3, column=0, sticky="e")
-        ttk.Spinbox(group_ocr, from_=0, to=255, textvariable=self.var_threshold, width=8).grid(row=3, column=1, sticky="w")
-        ttk.Checkbutton(group_ocr, text="反相", variable=self.var_invert).grid(row=3, column=2, sticky="w")
-        ttk.Label(group_ocr, text="模糊核").grid(row=3, column=3, sticky="e")
-        ttk.Spinbox(group_ocr, from_=1, to=9, increment=2, textvariable=self.var_blur, width=6).grid(row=3, column=4, sticky="w")
-        for i in range(5):
+        self.var_oem_widget.grid(row=3, column=1, sticky="w")
+        ttk.Label(group_ocr, text="二值阈值").grid(row=3, column=2, sticky="e")
+        ttk.Spinbox(group_ocr, from_=0, to=255, textvariable=self.var_threshold, width=8).grid(row=3, column=3, sticky="w")
+        ttk.Checkbutton(group_ocr, text="反相", variable=self.var_invert).grid(row=4, column=0, sticky="w")
+        ttk.Label(group_ocr, text="模糊核").grid(row=4, column=1, sticky="e")
+        ttk.Spinbox(group_ocr, from_=1, to=9, increment=2, textvariable=self.var_blur, width=6).grid(row=4, column=2, sticky="w")
+
+        ttk.Label(group_ocr, text="AI 视觉提示词").grid(row=5, column=0, sticky="e")
+        ttk.Entry(group_ocr, textvariable=self.var_vision_prompt, width=60).grid(row=5, column=1, columnspan=3, sticky="we")
+
+        for i in range(4):
             group_ocr.columnconfigure(i, weight=1)
 
         # UI 区域配置
@@ -392,7 +401,7 @@ class ScanFrame(ttk.Frame):
         cfg.setdefault("ocr", {})
         cfg.setdefault("ui_regions", {})
         cfg["ocr"].update({
-            "provider": "tesseract",
+            "provider": self.var_ocr_provider.get(),
             "tesseract_path": (self.var_tess_path.get().strip() or None),
             "lang": self.var_lang.get().strip() or "chi_sim+eng",
             "psm": int(self.var_psm.get()),
@@ -400,6 +409,7 @@ class ScanFrame(ttk.Frame):
             "threshold": int(self.var_threshold.get()),
             "invert": bool(self.var_invert.get()),
             "blur": int(self.var_blur.get()),
+            "vision_prompt": (self.var_vision_prompt.get().strip() or None),
         })
         try:
             regions = self._read_regions()
@@ -428,16 +438,24 @@ class ScanFrame(ttk.Frame):
         cfg = self.export_to_config(self.state.config)
         o = cfg.get("ocr", {})
         u = cfg.get("ui_regions", {})
-        ocr = OCR(OCRConfig(
-            provider=o.get("provider", "tesseract"),
-            tesseract_path=o.get("tesseract_path"),
-            lang=o.get("lang", "chi_sim+eng"),
-            psm=int(o.get("psm", 6)),
-            oem=int(o.get("oem", 3)),
-            threshold=o.get("threshold", 180),
-            invert=bool(o.get("invert", False)),
-            blur=int(o.get("blur", 1)),
-        ))
+        # 根据 provider 构建 OCR
+        provider = o.get("provider", "tesseract")
+        if provider == "ai_vision":
+            # 确保 AI 客户端可用
+            self.state.ensure_ai()
+            from src.image_recognition.ai_vision_ocr import AIVisionOCR
+            ocr = AIVisionOCR(self.state.ai_client, vision_prompt=o.get("vision_prompt"))
+        else:
+            ocr = OCR(OCRConfig(
+                provider=provider,
+                tesseract_path=o.get("tesseract_path"),
+                lang=o.get("lang", "chi_sim+eng"),
+                psm=int(o.get("psm", 6)),
+                oem=int(o.get("oem", 3)),
+                threshold=o.get("threshold", 180),
+                invert=bool(o.get("invert", False)),
+                blur=int(o.get("blur", 1)),
+            ))
         ui = UIRegions(
             character_stats=tuple(u.get("character_stats", [100, 100, 400, 300])),
             skill_buttons=[tuple(x) for x in (u.get("skill_buttons", []) or [])],

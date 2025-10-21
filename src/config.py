@@ -33,7 +33,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "oem": 3,
         "threshold": 180,
         "invert": False,
-        "blur": 1
+        "blur": 1,
+        "vision_prompt": None
     },
     # 简易 UI 区域坐标（左、上、宽、高），用于 OCR 扫描
     "ui_regions": {
