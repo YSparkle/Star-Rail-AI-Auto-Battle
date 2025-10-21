@@ -84,6 +84,8 @@ python app.py
 - 配置 AI 提供商 / API Key / 模型 / System Prompt（支持 OpenAI 兼容与自定义 HTTP）
 - 选择模式（刷材料/深渊/自定义）与偏好（是否凹本、A/B 方案、凹点细节）
 - 粘贴队伍与敌人 JSON，点击“生成策略（仅规划）”后会计算衍生值并保存记忆
+- OCR 识图/扫描：在“识图 / 扫描”页，可设置 Tesseract 路径与语言、UI 区域坐标，
+  一键截图，扫描当前角色基础属性与技能详情文本，自动追加到队伍；也可扫描敌人面板写入 enemy
 - 也可直接“开始自动战斗”（需你先在游戏内切到对应模式界面）
 
 可选：若需要打包为可执行程序（Windows .exe 等），可以使用 PyInstaller：
@@ -100,6 +102,21 @@ pyinstaller -F -w app.py
 - 若启用 AI，会生成更详细的多方案文本（稳定/极限可选）并保存到 data/memory/，并在日志中提示文案保存路径
 - 日志提示你“请手动切换到游戏内目标模式界面”，然后开始自动战斗循环
 - 若配置了 run.plan_only=true，则仅生成策略与记忆（含 planning_summary.json），不会启动自动战斗，便于你手动执行或进一步微调
+
+### OCR 识图/扫描使用说明
+
+- 识图采用 pytesseract（请确保已安装 Tesseract 可执行程序与 chi_sim 语言包）。
+- 在 UI 的“识图 / 扫描”页：
+  1) 配置 Tesseract 路径（Windows 通常为 C:\\Program Files\\Tesseract-OCR\\tesseract.exe）、语言、PSM/OEM、二值化等。
+  2) 按你的分辨率填写 UI 区域坐标（character_stats/skill_buttons/skill_detail_region/enemy_panel/detail_button）。
+  3) 请在游戏内手动打开“角色详情/技能详情/敌人面板”，点击“扫描当前角色/扫描敌人”，将识别到的文本与数值写入 JSON。
+- 角色扫描：
+  - 基础面板 OCR 解析 攻击/生命/防御/速度/暴击率/暴击伤害/能量回复/击破特攻 等关键值。
+  - 技能扫描：依次点击技能按钮并打开“详情”，抓取描述文本（方便后续 AI 深入理解）。
+- 敌人扫描：
+  - 读取敌人/关卡面板文本，写入 enemy.notes 字段；弱点/抗性可手填或交由 AI 推断。
+
+提示：UI 变化较多，默认坐标仅为占位，实际使用时请先截图确认，并根据自己分辨率调整。
 
 ## 📁 项目结构
 

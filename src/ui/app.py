@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
+import time
 import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from src.config import load_config
 from src.ai import AIClient, AIConfig, AIProviderType
@@ -13,6 +15,14 @@ from src.models.character import character_from_config
 from src.models.enemy import enemy_from_config
 from src.models.combat import compute_turn_order, summarize_team_estimates, analyze_team_enemy_synergy
 from src.strategy import StrategyManager, MaterialFarmStrategy, AbyssStrategy, StrategyContext, CustomStrategy
+from src.image_recognition.ocr import OCR, OCRConfig
+from src.image_recognition.scanner import (
+    UIRegions,
+    CharacterScanner,
+    EnemyScanner,
+    assemble_character_from_scan,
+    assemble_enemy_from_scan,
+)
 from main import StarRailAutoBattle
 
 
@@ -297,6 +307,191 @@ class DataFrame(ttk.Frame):
         return cfg
 
 
+class ScanFrame(ttk.Frame):
+    def __init__(self, master, state: AppState, frames: Optional[Dict[str, Any]] = None):
+        super().__init__(master)
+        self.state = state
+        self.frames = frames or {}
+
+        ocr_cfg = state.config.get("ocr", {})
+        ui_cfg = state.config.get("ui_regions", {})
+
+        # OCR 配置表单
+        group_ocr = ttk.LabelFrame(self, text="OCR 识别设置（Tesseract）")
+        group_ocr.pack(fill=tk.X, padx=8, pady=6)
+        self.var_tess_path = tk.StringVar(value=ocr_cfg.get("tesseract_path") or "")
+        self.var_lang = tk.StringVar(value=ocr_cfg.get("lang", "chi_sim+eng"))
+        self.var_psm = tk.IntVar(value=int(ocr_cfg.get("psm", 6)))
+        self.var_oem = tk.IntVar(value=int(ocr_cfg.get("oem", 3)))
+        self.var_threshold = tk.IntVar(value=int(ocr_cfg.get("threshold", 180)))
+        self.var_invert = tk.BooleanVar(value=bool(ocr_cfg.get("invert", False)))
+        self.var_blur = tk.IntVar(value=int(ocr_cfg.get("blur", 1)))
+
+        ttk.Label(group_ocr, text="Tesseract 路径").grid(row=0, column=0, sticky="e")
+        ttk.Entry(group_ocr, textvariable=self.var_tess_path, width=48).grid(row=0, column=1, sticky="we")
+        ttk.Label(group_ocr, text="语言(lang)").grid(row=1, column=0, sticky="e")
+        ttk.Entry(group_ocr, textvariable=self.var_lang, width=24).grid(row=1, column=1, sticky="w")
+        ttk.Label(group_ocr, text="PSM").grid(row=2, column=0, sticky="e")
+        ttk.Spinbox(group_ocr, from_=3, to=13, textvariable=self.var_psm, width=6).grid(row=2, column=1, sticky="w")
+        ttk.Label(group_ocr, text="OEM").grid(row=2, column=2, sticky="e")
+        self.var_oem_widget = ttk.Spinbox(group_ocr, from_=0, to=3, textvariable=self.var_oem, width=6)
+        self.var_oem_widget.grid(row=2, column=3, sticky="w")
+        ttk.Label(group_ocr, text="二值阈值").grid(row=3, column=0, sticky="e")
+        ttk.Spinbox(group_ocr, from_=0, to=255, textvariable=self.var_threshold, width=8).grid(row=3, column=1, sticky="w")
+        ttk.Checkbutton(group_ocr, text="反相", variable=self.var_invert).grid(row=3, column=2, sticky="w")
+        ttk.Label(group_ocr, text="模糊核").grid(row=3, column=3, sticky="e")
+        ttk.Spinbox(group_ocr, from_=1, to=9, increment=2, textvariable=self.var_blur, width=6).grid(row=3, column=4, sticky="w")
+        for i in range(5):
+            group_ocr.columnconfigure(i, weight=1)
+
+        # UI 区域配置
+        group_ui = ttk.LabelFrame(self, text="UI 区域（JSON，坐标/按钮）")
+        group_ui.pack(fill=tk.BOTH, expand=True, padx=8, pady=6)
+        self.text_regions = tk.Text(group_ui, height=10)
+        self.text_regions.pack(fill=tk.BOTH, expand=True)
+        # 预填
+        self.text_regions.insert("1.0", json.dumps(ui_cfg, ensure_ascii=False, indent=2))
+
+        # 扫描控制
+        group_ctrl = ttk.LabelFrame(self, text="扫描操作")
+        group_ctrl.pack(fill=tk.X, padx=8, pady=6)
+        # 角色基本信息（人工输入姓名/元素/命途）
+        ttk.Label(group_ctrl, text="角色名").grid(row=0, column=0, sticky="e")
+        self.var_char_name = tk.StringVar(value="角色A")
+        ttk.Entry(group_ctrl, textvariable=self.var_char_name, width=12).grid(row=0, column=1, sticky="w")
+        ttk.Label(group_ctrl, text="元素").grid(row=0, column=2, sticky="e")
+        self.var_char_elem = tk.StringVar(value="Physical")
+        ttk.Entry(group_ctrl, textvariable=self.var_char_elem, width=12).grid(row=0, column=3, sticky="w")
+        ttk.Label(group_ctrl, text="命途").grid(row=0, column=4, sticky="e")
+        self.var_char_path = tk.StringVar(value="Hunt")
+        ttk.Entry(group_ctrl, textvariable=self.var_char_path, width=12).grid(row=0, column=5, sticky="w")
+
+        ttk.Button(group_ctrl, text="截图预览（保存到 data/screenshots）", command=self.on_capture).grid(row=1, column=0, columnspan=3, sticky="w")
+        ttk.Button(group_ctrl, text="扫描当前角色 → 追加到队伍", command=self.on_scan_character).grid(row=1, column=3, columnspan=3, sticky="e")
+
+        ttk.Separator(self).pack(fill=tk.X, padx=8, pady=6)
+
+        group_enemy = ttk.LabelFrame(self, text="敌人扫描")
+        group_enemy.pack(fill=tk.X, padx=8, pady=6)
+        ttk.Label(group_enemy, text="敌人名称").grid(row=0, column=0, sticky="e")
+        self.var_enemy_name = tk.StringVar(value="敌人")
+        ttk.Entry(group_enemy, textvariable=self.var_enemy_name, width=18).grid(row=0, column=1, sticky="w")
+        ttk.Button(group_enemy, text="扫描敌人面板 → 写入 enemy", command=self.on_scan_enemy).grid(row=0, column=2, sticky="e")
+        for i in range(3):
+            group_enemy.columnconfigure(i, weight=1)
+
+    def _read_regions(self) -> Dict[str, Any]:
+        try:
+            return json.loads(self.text_regions.get("1.0", tk.END))
+        except Exception as e:
+            messagebox.showerror("错误", f"UI 区域 JSON 解析失败: {e}")
+            raise
+
+    def export_to_config(self, cfg: Dict[str, Any]) -> Dict[str, Any]:
+        cfg = cfg.copy()
+        cfg.setdefault("ocr", {})
+        cfg.setdefault("ui_regions", {})
+        cfg["ocr"].update({
+            "provider": "tesseract",
+            "tesseract_path": (self.var_tess_path.get().strip() or None),
+            "lang": self.var_lang.get().strip() or "chi_sim+eng",
+            "psm": int(self.var_psm.get()),
+            "oem": int(self.var_oem.get()),
+            "threshold": int(self.var_threshold.get()),
+            "invert": bool(self.var_invert.get()),
+            "blur": int(self.var_blur.get()),
+        })
+        try:
+            regions = self._read_regions()
+        except Exception:
+            return cfg
+        cfg["ui_regions"].update(regions)
+        self.state.config = cfg
+        return cfg
+
+    def on_capture(self):
+        # 截图并保存
+        try:
+            out_dir = os.path.join(os.getcwd(), "data", "screenshots")
+            os.makedirs(out_dir, exist_ok=True)
+            import pyautogui
+            img = pyautogui.screenshot()
+            fname = time.strftime("%Y%m%d-%H%M%S") + ".png"
+            path = os.path.join(out_dir, fname)
+            img.save(path)
+            messagebox.showinfo("成功", f"已保存截图: {path}")
+        except Exception as e:
+            messagebox.showerror("错误", f"截图失败：{e}")
+
+    def _build_scanners(self) -> Tuple[CharacterScanner, EnemyScanner, UIRegions]:
+        # 读取配置
+        cfg = self.export_to_config(self.state.config)
+        o = cfg.get("ocr", {})
+        u = cfg.get("ui_regions", {})
+        ocr = OCR(OCRConfig(
+            provider=o.get("provider", "tesseract"),
+            tesseract_path=o.get("tesseract_path"),
+            lang=o.get("lang", "chi_sim+eng"),
+            psm=int(o.get("psm", 6)),
+            oem=int(o.get("oem", 3)),
+            threshold=o.get("threshold", 180),
+            invert=bool(o.get("invert", False)),
+            blur=int(o.get("blur", 1)),
+        ))
+        ui = UIRegions(
+            character_stats=tuple(u.get("character_stats", [100, 100, 400, 300])),
+            skill_buttons=[tuple(x) for x in (u.get("skill_buttons", []) or [])],
+            skill_detail_region=tuple(u.get("skill_detail_region", [600, 200, 600, 600])),
+            enemy_panel=tuple(u.get("enemy_panel", [1000, 100, 400, 300])),
+            detail_button=(tuple(u.get("detail_button")) if u.get("detail_button") else None),
+        )
+        cscan = CharacterScanner(ocr)
+        escan = EnemyScanner(ocr)
+        return cscan, escan, ui
+
+    def on_scan_character(self):
+        try:
+            cscan, _, ui = self._build_scanners()
+            data = cscan.scan_character_all(ui)
+            basic = data.get("basic", {})
+            stats = basic.get("stats", {})
+            char = assemble_character_from_scan(
+                name=self.var_char_name.get().strip() or "角色A",
+                element=self.var_char_elem.get().strip() or "Physical",
+                path=self.var_char_path.get().strip() or "Hunt",
+                basic_stats=stats,
+            )
+            # 追加到队伍 JSON 框
+            frm_data: DataFrame = self.frames.get("data")
+            if frm_data is not None and hasattr(frm_data, "text_roster"):
+                try:
+                    roster = json.loads(frm_data.text_roster.get("1.0", tk.END) or "[]")
+                    if not isinstance(roster, list):
+                        roster = []
+                except Exception:
+                    roster = []
+                roster.append(char)
+                frm_data.text_roster.delete("1.0", tk.END)
+                frm_data.text_roster.insert("1.0", json.dumps(roster, ensure_ascii=False, indent=2))
+            messagebox.showinfo("完成", "已追加扫描到的角色数据（基础属性与空白遗器）")
+        except Exception as e:
+            messagebox.showerror("错误", f"扫描角色失败：{e}")
+
+    def on_scan_enemy(self):
+        try:
+            _, escan, ui = self._build_scanners()
+            data = escan.scan_enemy_panel(ui)
+            enemy = assemble_enemy_from_scan(self.var_enemy_name.get().strip() or "敌人", data.get("raw_text", ""))
+            # 写入敌人 JSON 框
+            frm_data: DataFrame = self.frames.get("data")
+            if frm_data is not None and hasattr(frm_data, "text_enemy"):
+                frm_data.text_enemy.delete("1.0", tk.END)
+                frm_data.text_enemy.insert("1.0", json.dumps(enemy, ensure_ascii=False, indent=2))
+            messagebox.showinfo("完成", "已写入扫描到的敌人数据（原始文本在 notes 字段）")
+        except Exception as e:
+            messagebox.showerror("错误", f"扫描敌人失败：{e}")
+
+
 class PlanFrame(ttk.Frame):
     def __init__(self, master, state: AppState, frames: Optional[Dict[str, Any]] = None):
         super().__init__(master)
@@ -513,13 +708,16 @@ def run_app():
     frames["prefs"] = frm_prefs
     frm_data = DataFrame(notebook, state)
     frames["data"] = frm_data
+    frm_scan = ScanFrame(notebook, state, frames)
+    frames["scan"] = frm_scan
     frm_plan = PlanFrame(notebook, state, frames)
     frames["plan"] = frm_plan
 
     notebook.add(frm_config, text="1. 配置与模式")
     notebook.add(frm_prefs, text="2. 偏好（凹本）")
     notebook.add(frm_data, text="3. 队伍与敌人")
-    notebook.add(frm_plan, text="4. 生成策略 / 启动")
+    notebook.add(frm_scan, text="4. 识图 / 扫描")
+    notebook.add(frm_plan, text="5. 生成策略 / 启动")
     notebook.pack(fill=tk.BOTH, expand=True)
 
     footer = FooterFrame(root, state, frames)
