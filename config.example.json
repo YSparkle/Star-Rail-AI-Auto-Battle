@@ -13,6 +13,24 @@
   "run": {
     "plan_only": false
   },
+  "ocr": {
+    "provider": "tesseract",
+    "tesseract_path": "C:/Program Files/Tesseract-OCR/tesseract.exe",
+    "lang": "chi_sim+eng",
+    "psm": 6,
+    "oem": 3,
+    "threshold": 180,
+    "invert": false,
+    "blur": 1,
+    "vision_prompt": "请阅读这张游戏截图中指定区域的所有可见文字，尽量按自然阅读顺序输出，保留数值、百分比、词条与段落。"
+  },
+  "ui_regions": {
+    "character_stats": [100, 100, 400, 300],
+    "skill_buttons": [[300, 800], [420, 800], [540, 800], [660, 800]],
+    "skill_detail_region": [600, 200, 600, 600],
+    "enemy_panel": [1000, 100, 400, 300],
+    "detail_button": null
+  },
   "mode": "material_farm",
   "preferences": {
     "allow_reroll": true,

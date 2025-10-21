@@ -118,6 +118,72 @@ class AIClient:
         else:
             raise NotImplementedError(f"不支持的 provider: {self.config.provider}")
 
+    def chat_vision(self, images_b64: List[str], user_prompt: str, system_prompt: Optional[str] = None,
+                    temperature: float = 0.2, max_tokens: Optional[int] = None) -> str:
+        """多模态对话：发送一条包含文本+图片的 user 消息。
+        images_b64: PNG/JPEG 的 base64 字符串（不带 data: 前缀）
+        """
+        if not self.is_available():
+            self.logger.warning("AI 未启用或未配置，返回占位文本")
+            return "[AI 未启用：无法生成计划，请在 config.json 配置 ai 字段]"
+        self._ensure_requests()
+        sys_prompt = system_prompt or self.config.system_prompt
+        content_parts: List[Dict[str, object]] = []
+        content_parts.append({"type": "text", "text": user_prompt})
+        for b64 in images_b64:
+            content_parts.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{b64}"}
+            })
+        payload_msgs: List[Dict[str, object]] = []
+        if sys_prompt:
+            payload_msgs.append({"role": "system", "content": sys_prompt})
+        payload_msgs.append({"role": "user", "content": content_parts})
+
+        if self.config.provider == AIProviderType.OPENAI_COMPATIBLE:
+            url = f"{self.config.base_url.rstrip('/')}/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {self.config.api_key}",
+                "Content-Type": "application/json",
+            }
+            data: Dict[str, object] = {
+                "model": self.config.model,
+                "messages": payload_msgs,
+                "temperature": temperature,
+            }
+            if max_tokens is not None:
+                data["max_tokens"] = max_tokens
+            resp = requests.post(url, headers=headers, json=data, timeout=self.config.timeout)
+            resp.raise_for_status()
+            j = resp.json()
+            content = j.get("choices", [{}])[0].get("message", {}).get("content")
+            if not content:
+                content = j.get("choices", [{}])[0].get("text")
+            return content or "[AI 响应为空]"
+
+        elif self.config.provider == AIProviderType.CUSTOM_HTTP:
+            if not self.config.endpoint:
+                raise ValueError("自定义 HTTP 模式需要提供 endpoint")
+            headers = self.config.headers or {}
+            if self.config.api_key:
+                headers.setdefault("Authorization", f"Bearer {self.config.api_key}")
+            data = {
+                "model": self.config.model,
+                "messages": payload_msgs,
+                "temperature": temperature,
+            }
+            resp = requests.post(self.config.endpoint, headers=headers, json=data, timeout=self.config.timeout)
+            resp.raise_for_status()
+            j = resp.json()
+            return (
+                j.get("choices", [{}])[0].get("message", {}).get("content")
+                or j.get("choices", [{}])[0].get("text")
+                or j.get("data")
+                or json.dumps(j, ensure_ascii=False)
+            )
+        else:
+            raise NotImplementedError(f"不支持的 provider: {self.config.provider}")
+
     def summarize_to_plan(self, context: Dict) -> str:
         """给定上下文，生成策略规划文本（由模型输出）。
         这是一个轻薄封装，方便策略模块调用。

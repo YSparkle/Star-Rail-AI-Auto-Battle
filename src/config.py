@@ -24,6 +24,26 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "endpoint": None,   # 仅 custom_http 使用
         "headers": {},      # 仅 custom_http 使用
     },
+    # OCR 与扫描配置（可在 UI 中编辑）
+    "ocr": {
+        "provider": "tesseract",
+        "tesseract_path": None,
+        "lang": "chi_sim+eng",
+        "psm": 6,
+        "oem": 3,
+        "threshold": 180,
+        "invert": False,
+        "blur": 1,
+        "vision_prompt": None
+    },
+    # 简易 UI 区域坐标（左、上、宽、高），用于 OCR 扫描
+    "ui_regions": {
+        "character_stats": [100, 100, 400, 300],
+        "skill_buttons": [[300, 800], [420, 800], [540, 800], [660, 800]],
+        "skill_detail_region": [600, 200, 600, 600],
+        "enemy_panel": [1000, 100, 400, 300],
+        "detail_button": None
+    },
     # 运行模式：plan_only 为 true 时仅生成策略与保存记忆，不启动自动战斗
     "run": {
         "plan_only": False
@@ -58,6 +78,14 @@ def load_config() -> Dict[str, Any]:
             ai = DEFAULT_CONFIG["ai"].copy()
             ai.update(cfg.get("ai", {}))
             cfg["ai"] = ai
+            # ocr 子项合并
+            ocr = DEFAULT_CONFIG["ocr"].copy()
+            ocr.update(cfg.get("ocr", {}))
+            cfg["ocr"] = ocr
+            # ui_regions 子项合并
+            ui_regions = DEFAULT_CONFIG["ui_regions"].copy()
+            ui_regions.update(cfg.get("ui_regions", {}))
+            cfg["ui_regions"] = ui_regions
             # preferences 子项也做合并，避免缺项
             pref = DEFAULT_CONFIG["preferences"].copy()
             pref.update(cfg.get("preferences", {}))
