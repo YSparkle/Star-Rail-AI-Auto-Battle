@@ -80,7 +80,20 @@ class StarRailAutoBattle:
             cfg = AIConfig(enabled=False)
         self.ai_client = AIClient(cfg)
 
+    def _apply_input_settings(self):
+        """应用键位与输入安全设置"""
+        inp = (self.config.get("input", {}) or {})
+        keybinds = (inp.get("keybinds") or {})
+        enabled = bool(inp.get("enable_inputs", False))
+        try:
+            self.game_controller.update_settings(keybinds=keybinds, enable_inputs=enabled)
+        except Exception:
+            # GameController 可能在早期尚未初始化
+            pass
+
     def _prepare_strategy(self):
+        # 应用输入设置
+        self._apply_input_settings()
         # 计算角色衍生属性
         roster_cfg = self.config.get("roster", [])
         characters = [character_from_config(c) for c in roster_cfg]
@@ -196,6 +209,7 @@ class StarRailAutoBattle:
         # 读取运行模式
         self.plan_only = bool(self.config.get("run", {}).get("plan_only", False))
         self._setup_ai()
+        self._apply_input_settings()
         self._prepare_strategy()
         if self.plan_only:
             self.logger.info("已启用仅规划模式：将生成策略与记忆，不会启动自动战斗。")
@@ -246,15 +260,17 @@ class StarRailAutoBattle:
         return game_data
 
     def execute_action(self, action: str):
-        """执行决策动作"""
+        """执行决策动作（根据语义动作映射到安全键位）"""
         self.logger.info(f"执行动作: {action}")
 
         if "治疗" in action:
-            self.game_controller.use_skill('q')  # 假设Q是治疗技能
-        elif "群体攻击" in action:
-            self.game_controller.use_skill('e')  # 假设E是群体技能
-        elif "单体攻击" in action:
-            self.game_controller.attack()
+            self.game_controller.use_skill('heal_skill')
+        elif "群体" in action:
+            self.game_controller.use_skill('aoe_skill')
+        elif "单体" in action:
+            self.game_controller.use_skill('single_skill')
+        elif "终结" in action or "大招" in action:
+            self.game_controller.use_skill('ultimate')
         else:
             self.game_controller.attack()
 

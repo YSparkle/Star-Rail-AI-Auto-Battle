@@ -13,8 +13,26 @@
   "run": {
     "plan_only": false
   },
+  "input": {
+    "enable_inputs": false,
+    "keybinds": {
+      "attack": "space",
+      "single_skill": "space",
+      "aoe_skill": "e",
+      "heal_skill": "q",
+      "ultimate": "t",
+      "interact": "f",
+      "open_menu": "esc",
+      "confirm": "enter",
+      "cancel": "backspace",
+      "switch_1": "1",
+      "switch_2": "2",
+      "switch_3": "3",
+      "switch_4": "4"
+    }
+  },
   "ocr": {
-    "provider": "tesseract",
+    "provider": "ai_vision",
     "tesseract_path": "C:/Program Files/Tesseract-OCR/tesseract.exe",
     "lang": "chi_sim+eng",
     "psm": 6,
