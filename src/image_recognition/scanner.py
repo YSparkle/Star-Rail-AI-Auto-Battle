@@ -52,20 +52,35 @@ class CharacterScanner:
         if not ui.skill_buttons:
             return results
         for (x, y) in ui.skill_buttons:
-            # 点击技能按钮
+            # 点击技能按钮，先读取“粗略描述”，再（可选）点击“详情”读取更详细描述
             try:
                 self.ctrl.move_to(x, y, duration=0.2)
                 self.ctrl.click()
                 time.sleep(delay)
+
+                # 先读取粗略描述（通常为技能面板初始文本区域）
+                brief_txt = self.ocr.ocr_region(ui.skill_detail_region)
+                brief_parsed = parse_skill_text(brief_txt)
+
+                detail_txt: Optional[str] = None
+                detail_parsed: Optional[Dict[str, Any]] = None
+
+                # 若提供了“详情”按钮坐标，则点击后读取更详细描述
                 if ui.detail_button:
                     self.ctrl.move_to(ui.detail_button[0], ui.detail_button[1], duration=0.2)
                     self.ctrl.click()
                     time.sleep(delay)
-                # 读取详情区域文本
-                txt = self.ocr.ocr_region(ui.skill_detail_region)
-                parsed = parse_skill_text(txt)
-                results.append(parsed)
-                # 关闭详情（若有）
+                    detail_txt = self.ocr.ocr_region(ui.skill_detail_region)
+                    detail_parsed = parse_skill_text(detail_txt)
+
+                results.append({
+                    "brief": brief_parsed,
+                    "brief_raw": brief_txt,
+                    "detail": detail_parsed,
+                    "detail_raw": detail_txt,
+                })
+
+                # 关闭详情/面板（若有）
                 self.ctrl.press_key('esc')
                 time.sleep(0.2)
             except Exception as e:
