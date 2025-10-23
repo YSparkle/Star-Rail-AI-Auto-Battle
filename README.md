@@ -60,6 +60,7 @@ cp config.example.json config.json
   - ai.system_prompt: 系统提示词，可自定义要求输出多套策略（稳定/极限等）
   - run.plan_only: 若为 true，则仅生成策略和保存记忆，不启动自动战斗
   - mode: material_farm（刷材料）、abyss（深渊）或 custom（自定义）
+  - input.preferred_ult_index: 触发“终结技”默认按哪位队员的数字键（1-4，默认 1）
   - preferences.allow_reroll: 是否允许“凹”（为极限回合/更优循环而重试）
   - preferences.selected_option: 选择策略 A（稳定）或 B（极限），不填则仅给出推荐
   - preferences.reroll_settings: 可选，细化“凹”的偏好，如 {"max_retries": 10, "bait_target": "主C示例", "bait_condition": "第一波吃单体"}
@@ -83,7 +84,9 @@ python app.py
 图形界面会弹出一个窗口用于：
 - 配置 AI 提供商 / API Key / 模型 / System Prompt（支持 OpenAI 兼容与自定义 HTTP）
 - 选择模式（刷材料/深渊/自定义）与偏好（是否凹本、A/B 方案、凹点细节）
-- 键位设置：输入安全开关（未启用时不会发送任何按键），以及“动作 → 按键名”的映射（普攻/单体/群体/治疗/终结技/切人等）
+- 键位设置：输入安全开关（未启用时不会发送任何按键），以及“动作 → 按键名”的映射。
+  默认：Q=普攻，E=战技（单体/群体/治疗均用 E），1-4=释放终结技（对应队伍第1-4人）。
+  可使用左右方向键或鼠标点击在释放终结技时选择目标。
 - 粘贴队伍与敌人 JSON，点击“生成策略（仅规划）”后会计算衍生值并保存记忆
 - OCR 识图/扫描：在“识图 / 扫描”页，可设置 Tesseract 路径与语言、UI 区域坐标，
   一键截图，扫描当前角色基础属性与技能详情文本，自动追加到队伍；也可扫描敌人面板写入 enemy

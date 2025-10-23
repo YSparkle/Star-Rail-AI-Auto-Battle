@@ -270,7 +270,11 @@ class StarRailAutoBattle:
         elif "单体" in action:
             self.game_controller.use_skill('single_skill')
         elif "终结" in action or "大招" in action:
-            self.game_controller.use_skill('ultimate')
+            try:
+                idx = int((self.config.get("input", {}) or {}).get("preferred_ult_index", 1))
+            except Exception:
+                idx = 1
+            self.game_controller.use_ultimate(max(1, min(4, idx)))
         else:
             self.game_controller.attack()
 

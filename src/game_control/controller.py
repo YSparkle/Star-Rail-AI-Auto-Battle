@@ -34,11 +34,11 @@ class GameController:
     }
 
     DEFAULT_BINDS = {
-        "attack": "space",
-        "single_skill": "space",  # 若单体技能是普攻，则与 attack 一致
+        "attack": "q",
+        "single_skill": "e",
         "aoe_skill": "e",
-        "heal_skill": "q",
-        "ultimate": "t",
+        "heal_skill": "e",
+        # 无独立 'ultimate' 键位，按队伍位序使用 1-4 释放
         "interact": "f",
         "open_menu": "esc",
         "confirm": "enter",
@@ -125,15 +125,26 @@ class GameController:
 
     # 游戏特定操作（基于语义动作）
     def use_skill(self, skill_action: str):
-        """skill_action 可为 'single_skill'/'aoe_skill'/'heal_skill'/'ultimate' 等"""
-        self.press_action(skill_action, default_key=self.DEFAULT_BINDS.get(skill_action, "space"))
+        """skill_action 可为 'single_skill'/'aoe_skill'/'heal_skill' 等（战技/普攻）"""
+        self.press_action(skill_action, default_key=self.DEFAULT_BINDS.get(skill_action, "e"))
 
     def switch_character(self, character_index: int):
         if 1 <= character_index <= 4:
             self.press_action(f"switch_{character_index}", default_key=str(character_index))
 
+    def use_ultimate(self, character_index: int = 1):
+        """释放终结技：根据队伍序号 1-4 按对应数字键。"""
+        if 1 <= character_index <= 4:
+            self.press_action(f"switch_{character_index}", default_key=str(character_index))
+
+    def select_target_left(self):
+        self.press_key("left")
+
+    def select_target_right(self):
+        self.press_key("right")
+
     def attack(self):
-        self.press_action("attack", default_key="space")
+        self.press_action("attack", default_key="q")
 
     def open_menu(self):
         self.press_action("open_menu", default_key="esc")

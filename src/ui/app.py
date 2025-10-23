@@ -286,19 +286,18 @@ class KeybindsFrame(ttk.Frame):
 
         self._action_vars: Dict[str, tk.StringVar] = {}
         actions = [
-            ("attack", "普通攻击/普攻"),
-            ("single_skill", "单体技能"),
-            ("aoe_skill", "群体技能"),
-            ("heal_skill", "治疗技能"),
-            ("ultimate", "终结技/大招"),
+            ("attack", "普通攻击/普攻（默认 Q）"),
+            ("single_skill", "单体技能（默认 E）"),
+            ("aoe_skill", "群体技能（默认 E）"),
+            ("heal_skill", "治疗技能（默认 E）"),
             ("interact", "交互/拾取"),
             ("open_menu", "打开菜单"),
             ("confirm", "确认/确定"),
             ("cancel", "取消/返回"),
-            ("switch_1", "切换角色1"),
-            ("switch_2", "切换角色2"),
-            ("switch_3", "切换角色3"),
-            ("switch_4", "切换角色4"),
+            ("switch_1", "释放大招1（队伍第1人）"),
+            ("switch_2", "释放大招2（队伍第2人）"),
+            ("switch_3", "释放大招3（队伍第3人）"),
+            ("switch_4", "释放大招4（队伍第4人）"),
         ]
         for i, (k, label) in enumerate(actions):
             ttk.Label(group_keys, text=label).grid(row=i, column=0, sticky="e", padx=4, pady=2)
