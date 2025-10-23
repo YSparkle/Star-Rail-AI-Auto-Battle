@@ -267,6 +267,64 @@ class PrefsFrame(ttk.Frame):
         return cfg
 
 
+class KeybindsFrame(ttk.Frame):
+    def __init__(self, master, state: AppState):
+        super().__init__(master)
+        self.state = state
+
+        input_cfg = state.config.get("input", {}) or {}
+        keybinds = (input_cfg.get("keybinds") or {})
+        self.var_enable_inputs = tk.BooleanVar(value=bool(input_cfg.get("enable_inputs", False)))
+
+        group_switch = ttk.LabelFrame(self, text="输入安全开关")
+        group_switch.pack(fill=tk.X, padx=8, pady=6)
+        ttk.Checkbutton(group_switch, text="启用键鼠输入（未开启时不会发送任何按键）", variable=self.var_enable_inputs).pack(anchor="w", padx=8, pady=4)
+        ttk.Label(group_switch, text="提示：为避免危险操作，程序会忽略包含 ctrl/alt/win/command 等组合键").pack(anchor="w", padx=8)
+
+        group_keys = ttk.LabelFrame(self, text="键位映射（动作 → 按键名）")
+        group_keys.pack(fill=tk.BOTH, expand=True, padx=8, pady=6)
+
+        self._action_vars: Dict[str, tk.StringVar] = {}
+        actions = [
+            ("attack", "普通攻击/普攻"),
+            ("single_skill", "单体技能"),
+            ("aoe_skill", "群体技能"),
+            ("heal_skill", "治疗技能"),
+            ("ultimate", "终结技/大招"),
+            ("interact", "交互/拾取"),
+            ("open_menu", "打开菜单"),
+            ("confirm", "确认/确定"),
+            ("cancel", "取消/返回"),
+            ("switch_1", "切换角色1"),
+            ("switch_2", "切换角色2"),
+            ("switch_3", "切换角色3"),
+            ("switch_4", "切换角色4"),
+        ]
+        for i, (k, label) in enumerate(actions):
+            ttk.Label(group_keys, text=label).grid(row=i, column=0, sticky="e", padx=4, pady=2)
+            var = tk.StringVar(value=str(keybinds.get(k, "")))
+            self._action_vars[k] = var
+            ttk.Entry(group_keys, textvariable=var, width=14).grid(row=i, column=1, sticky="w")
+        for c in range(2):
+            group_keys.columnconfigure(c, weight=1)
+
+    def export_to_config(self, cfg: Dict[str, Any]) -> Dict[str, Any]:
+        cfg = cfg.copy()
+        cfg.setdefault("input", {})
+        # 构建 keybinds
+        keybinds: Dict[str, str] = {}
+        for k, var in self._action_vars.items():
+            v = (var.get() or "").strip()
+            if v:
+                keybinds[k] = v
+        cfg["input"].update({
+            "enable_inputs": bool(self.var_enable_inputs.get()),
+            "keybinds": keybinds,
+        })
+        self.state.config = cfg
+        return cfg
+
+
 class DataFrame(ttk.Frame):
     def __init__(self, master, state: AppState):
         super().__init__(master)
@@ -533,6 +591,8 @@ class PlanFrame(ttk.Frame):
                 cfg = self.frames["config"].export_to_config()
             if "prefs" in self.frames and hasattr(self.frames["prefs"], "export_to_config"):
                 cfg = self.frames["prefs"].export_to_config(cfg)
+            if "keybinds" in self.frames and hasattr(self.frames["keybinds"], "export_to_config"):
+                cfg = self.frames["keybinds"].export_to_config(cfg)
             if "data" in self.frames and hasattr(self.frames["data"], "export_to_config"):
                 cfg = self.frames["data"].export_to_config(cfg)
         finally:
@@ -677,6 +737,8 @@ class FooterFrame(ttk.Frame):
     def _gather_config(self) -> Dict[str, Any]:
         cfg = self.frames["config"].export_to_config()
         cfg = self.frames["prefs"].export_to_config(cfg)
+        if "keybinds" in self.frames and hasattr(self.frames["keybinds"], "export_to_config"):
+            cfg = self.frames["keybinds"].export_to_config(cfg)
         cfg = self.frames["data"].export_to_config(cfg)
         self.state.config = cfg
         return cfg
@@ -724,6 +786,8 @@ def run_app():
     frames["config"] = frm_config
     frm_prefs = PrefsFrame(notebook, state)
     frames["prefs"] = frm_prefs
+    frm_keybinds = KeybindsFrame(notebook, state)
+    frames["keybinds"] = frm_keybinds
     frm_data = DataFrame(notebook, state)
     frames["data"] = frm_data
     frm_scan = ScanFrame(notebook, state, frames)
@@ -733,9 +797,10 @@ def run_app():
 
     notebook.add(frm_config, text="1. 配置与模式")
     notebook.add(frm_prefs, text="2. 偏好（凹本）")
-    notebook.add(frm_data, text="3. 队伍与敌人")
-    notebook.add(frm_scan, text="4. 识图 / 扫描")
-    notebook.add(frm_plan, text="5. 生成策略 / 启动")
+    notebook.add(frm_keybinds, text="3. 键位设置")
+    notebook.add(frm_data, text="4. 队伍与敌人")
+    notebook.add(frm_scan, text="5. 识图 / 扫描")
+    notebook.add(frm_plan, text="6. 生成策略 / 启动")
     notebook.pack(fill=tk.BOTH, expand=True)
 
     footer = FooterFrame(root, state, frames)

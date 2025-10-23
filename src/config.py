@@ -48,6 +48,25 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "run": {
         "plan_only": False
     },
+    # 输入与键位
+    "input": {
+        "enable_inputs": False,
+        "keybinds": {
+            "attack": "space",
+            "single_skill": "space",
+            "aoe_skill": "e",
+            "heal_skill": "q",
+            "ultimate": "t",
+            "interact": "f",
+            "open_menu": "esc",
+            "confirm": "enter",
+            "cancel": "backspace",
+            "switch_1": "1",
+            "switch_2": "2",
+            "switch_3": "3",
+            "switch_4": "4"
+        }
+    },
     "mode": "material_farm",  # material_farm | abyss | custom
     "preferences": {
         "allow_reroll": True,   # 是否允许凹本
@@ -94,6 +113,14 @@ def load_config() -> Dict[str, Any]:
             run = DEFAULT_CONFIG["run"].copy()
             run.update(cfg.get("run", {}))
             cfg["run"] = run
+            # input 子项也做合并
+            _input = DEFAULT_CONFIG["input"].copy()
+            # 嵌套的 keybinds 也需要合并
+            _input.update({k: v for k, v in (cfg.get("input", {}) or {}).items() if k != "keybinds"})
+            kb = DEFAULT_CONFIG["input"]["keybinds"].copy()
+            kb.update(((cfg.get("input", {}) or {}).get("keybinds", {})))
+            _input["keybinds"] = kb
+            cfg["input"] = _input
             return cfg
         except Exception as e:
             logger.error(f"读取配置失败，使用默认配置: {e}")
