@@ -1,6 +1,6 @@
 """
 星穹铁道AI自动战斗系统 - 主程序
-整合所有模块，提供统一的战斗自动化功能
+基于AI视觉识别和策略生成的自动战斗系统
 """
 
 import time
@@ -8,27 +8,17 @@ import logging
 from typing import Dict, Optional
 
 from src.image_recognition.recognizer import ImageRecognizer
-from src.decision_engine.decision import BattleDecision
 from src.game_control.controller import GameController
 
-# 新增：配置、AI、策略与记忆存储
+# AI策略引擎
 from src.config import load_config
-from src.ai import AIClient, AIConfig, AIProviderType
+from src.ai import AIClient, AIConfig, AIProviderType, AIStrategyEngine
 from src.storage.memory import MemoryStore
-from src.models.character import character_from_config
-from src.models.enemy import enemy_from_config
-from src.models.combat import compute_turn_order, summarize_team_estimates, analyze_team_enemy_synergy
-from src.strategy import (
-    StrategyManager,
-    MaterialFarmStrategy,
-    AbyssStrategy,
-    StrategyContext,
-    CustomStrategy,
-)
+from src.decision_engine.ai_decision import AIBattleDecision
 
 
 class StarRailAutoBattle:
-    """星穹铁道自动战斗主类"""
+    """星穹铁道AI自动战斗主类"""
 
     def __init__(self):
         # 设置日志
@@ -38,23 +28,20 @@ class StarRailAutoBattle:
         )
         self.logger = logging.getLogger(__name__)
 
-        # 初始化各个模块
+        # 初始化基础模块
         self.image_recognizer = ImageRecognizer()
-        self.decision_engine = BattleDecision()
         self.game_controller = GameController()
+        self.memory = MemoryStore()
 
-        # 新增：配置、AI、策略与记忆
+        # 配置与AI
         self.config: Dict = {}
         self.ai_client: Optional[AIClient] = None
-        self.memory = MemoryStore()
-        self.strategy_manager = StrategyManager({
-            "material_farm": MaterialFarmStrategy(),
-            "abyss": AbyssStrategy(),
-            "custom": CustomStrategy(),
-        })
-        self.strategy_plan = None
-        # 仅规划模式（不启动自动战斗）
-        self.plan_only = False
+        self.ai_strategy_engine: Optional[AIStrategyEngine] = None
+        self.ai_decision: Optional[AIBattleDecision] = None
+
+        # 运行模式
+        self.plan_only = False  # 仅规划模式
+        self.scan_only = False  # 仅扫描模式
 
         # 战斗状态
         self.is_running = False
@@ -62,6 +49,7 @@ class StarRailAutoBattle:
         self.victory_count = 0
 
     def _setup_ai(self):
+        """设置AI客户端和策略引擎"""
         ai_cfg = self.config.get("ai", {})
         try:
             cfg = AIConfig(
@@ -75,10 +63,26 @@ class StarRailAutoBattle:
                 endpoint=ai_cfg.get("endpoint"),
                 headers=ai_cfg.get("headers"),
             )
-        except Exception:
-            # provider 解析失败等情况，回落默认
+        except Exception as e:
+            self.logger.warning(f"AI配置解析失败：{e}，使用默认配置")
             cfg = AIConfig(enabled=False)
+        
         self.ai_client = AIClient(cfg)
+        
+        if self.ai_client.is_available():
+            self.logger.info("AI已启用，使用视觉识别和智能决策")
+            self.ai_strategy_engine = AIStrategyEngine(
+                ai_client=self.ai_client,
+                game_controller=self.game_controller,
+                memory_store=self.memory,
+                logger=self.logger
+            )
+            self.ai_decision = AIBattleDecision(
+                ai_strategy_engine=self.ai_strategy_engine,
+                logger=self.logger
+            )
+        else:
+            self.logger.warning("AI未启用，将无法使用自动战斗功能")
 
     def _apply_input_settings(self):
         """应用键位与输入安全设置"""
@@ -87,216 +91,220 @@ class StarRailAutoBattle:
         enabled = bool(inp.get("enable_inputs", False))
         try:
             self.game_controller.update_settings(keybinds=keybinds, enable_inputs=enabled)
-        except Exception:
-            # GameController 可能在早期尚未初始化
-            pass
+        except Exception as e:
+            self.logger.warning(f"更新游戏控制器设置失败：{e}")
 
-    def _prepare_strategy(self):
-        # 应用输入设置
-        self._apply_input_settings()
-        # 计算角色衍生属性
-        roster_cfg = self.config.get("roster", [])
-        characters = [character_from_config(c) for c in roster_cfg]
-        computed_chars = [{"name": c.name, **c.computed} for c in characters]
+    def scan_characters_and_enemies(self):
+        """扫描角色和敌人信息（使用AI识图）"""
+        if not self.ai_strategy_engine:
+            self.logger.error("AI策略引擎未初始化，无法扫描")
+            return
+        
+        self.logger.info("="*60)
+        self.logger.info("开始扫描模式")
+        self.logger.info("="*60)
+        
+        ui_regions = self.config.get("ui_regions", {})
+        roster_config = self.config.get("roster", [])
+        enemy_config = self.config.get("enemy", {})
+        
+        # 扫描角色
+        self.logger.info(f"准备扫描 {len(roster_config)} 个角色...")
+        self.logger.info("请确保已在游戏中打开角色详情界面")
+        time.sleep(2)
+        
+        for char_cfg in roster_config:
+            name = char_cfg.get("name", "未知角色")
+            element = char_cfg.get("element", "Physical")
+            path = char_cfg.get("path", "Hunt")
+            
+            self.logger.info(f"正在扫描角色：{name}")
+            try:
+                char_info = self.ai_strategy_engine.scan_character_with_ai(
+                    name=name,
+                    element=element,
+                    path=path,
+                    ui_regions=ui_regions
+                )
+                self.ai_strategy_engine.characters.append(char_info)
+                self.logger.info(f"✓ 角色 {name} 扫描完成")
+                self.logger.info(f"  属性：{char_info.stats}")
+                self.logger.info(f"  技能数：{len(char_info.skills)}")
+            except Exception as e:
+                self.logger.error(f"✗ 角色 {name} 扫描失败：{e}")
+            
+            time.sleep(1)
+        
+        # 扫描敌人
+        if enemy_config:
+            enemy_name = enemy_config.get("name", "未知敌人")
+            self.logger.info(f"正在扫描敌人：{enemy_name}")
+            self.logger.info("请确保已在游戏中打开敌人信息界面")
+            time.sleep(2)
+            
+            try:
+                enemy_info = self.ai_strategy_engine.scan_enemy_with_ai(
+                    name=enemy_name,
+                    ui_regions=ui_regions
+                )
+                self.ai_strategy_engine.enemies.append(enemy_info)
+                self.logger.info(f"✓ 敌人 {enemy_name} 扫描完成")
+                self.logger.info(f"  属性：{enemy_info.stats}")
+                self.logger.info(f"  弱点：{enemy_info.weaknesses}")
+            except Exception as e:
+                self.logger.error(f"✗ 敌人 {enemy_name} 扫描失败：{e}")
+        
+        self.logger.info("="*60)
+        self.logger.info("扫描完成！所有信息已保存到记忆中")
+        self.logger.info("="*60)
 
-        # 计算敌人衍生属性
-        enemy_cfg = self.config.get("enemy", {})
-        enemy_obj = enemy_from_config(enemy_cfg or {})
-        computed_enemy = {
-            "name": enemy_obj.name,
-            **enemy_obj.computed,
-            "weaknesses": enemy_obj.weaknesses,
-            "resistances": enemy_obj.resistances,
-            "buffs": enemy_obj.buffs,
-        }
-
-        # 团队行动顺序与伤害估计
-        turn_order = compute_turn_order(computed_chars)
-        team_estimates = summarize_team_estimates(computed_chars)
-        synergy = analyze_team_enemy_synergy(roster_cfg, computed_chars, enemy_cfg)
-
-        computed_all = {
-            "characters": computed_chars,
-            "turn_order": turn_order,
-            "team_estimates": team_estimates,
-            "enemy": computed_enemy,
-            "synergy": synergy,
-        }
-
-        ctx = StrategyContext(
-            mode=self.config.get("mode", "material_farm"),
-            preferences=self.config.get("preferences", {}),
-            roster=roster_cfg,
-            enemy=enemy_cfg,
-            computed=computed_all,
-        )
-
-        # 生成基础方案（启用 AI 时请辅助生成详细可选策略）
-        self.strategy_plan = self.strategy_manager.plan(ctx)
-
-        # 如启用 AI，再生成更详细的文案供玩家阅读与选择
-        ai_text_path = None
-        if self.ai_client and self.ai_client.is_available():
-            context_for_ai = {
-                "mode": ctx.mode,
-                "preferences": ctx.preferences,
-                "roster": ctx.roster,
-                "enemy": ctx.enemy,
-                "computed": ctx.computed,
-            }
-            ai_text = self.ai_client.summarize_to_plan(context_for_ai)
-            ai_text_path = self.memory.save("ai_strategy_text", {"plan": ai_text})
-            self.logger.info(f"AI 策略文案已保存: {ai_text_path}")
-
-        # 永久化保存角色、敌人与计算信息，便于后续记忆
-        self.memory.save("characters", {"list": ctx.roster, "computed": computed_chars})
-        self.memory.save("enemy", enemy_cfg)
-        self.memory.save("computed", computed_all)
-        # 同步保存 AI 与偏好配置，便于后续上下文
-        self.memory.save("ai_config", self.config.get("ai", {}))
-        self.memory.save("preferences", self.config.get("preferences", {}))
-
-        if self.strategy_plan:
-            self.memory.save("strategy_plan", {
-                "name": self.strategy_plan.name,
-                "description": self.strategy_plan.description,
-                "options": self.strategy_plan.options,
-                "recommends": self.strategy_plan.recommends,
-                "steps": self.strategy_plan.steps,
-                "requires_reroll": self.strategy_plan.requires_reroll,
-                "expected_rounds": self.strategy_plan.expected_rounds,
-            })
-
-        # 记录用户偏好选择（如 A/B 策略）
-        selected = (self.config.get("preferences", {}).get("selected_option") or "").upper()
-        if selected in ("A", "B"):
-            self.memory.save("selected_option", {"value": selected})
-
-        # 日志提示：基础契合度与手动切换模式
-        syn = computed_all.get("synergy", {})
-        self.logger.info(
-            f"元素覆盖: {syn.get('element_counts', {})} | 弱点命中: {syn.get('weakness_match_names', [])} | 覆盖率: {syn.get('weakness_match_ratio')}"
-        )
-        self.logger.info(
-            f"敌方对队伍元素的平均抗性: {syn.get('avg_enemy_resistance_vs_team')} | 平均/最高速度: {syn.get('avg_speed')}/{syn.get('max_speed')}"
-        )
-        self.logger.info("请在游戏中手动切换到目标模式界面，然后开始执行。")
-        if self.strategy_plan:
-            self.logger.info(f"已为模式 {ctx.mode} 生成策略：{self.strategy_plan.name}")
-            self.logger.info(f"策略说明：{self.strategy_plan.description}")
-            for i, opt in enumerate(self.strategy_plan.options, 1):
-                self.logger.info(f"方案 {i}: {opt}")
-            if self.strategy_plan.recommends:
-                self.logger.info(f"推荐：{self.strategy_plan.recommends}")
-            if selected in ( "A", "B" ):
-                self.logger.info(f"已选择策略：{selected}（允许凹本: {bool(ctx.preferences.get('allow_reroll', True))}）")
-
-        # 汇总保存一个规划总览，便于查看
-        summary = {
-            "mode": ctx.mode,
-            "preferences": ctx.preferences,
-            "computed": computed_all,
-            "strategy_plan": self.strategy_plan.__dict__ if self.strategy_plan else None,
-            "ai_text_file": ai_text_path,
-        }
-        self.memory.save("planning_summary", summary)
+    def generate_strategy(self):
+        """生成战斗策略"""
+        if not self.ai_strategy_engine:
+            self.logger.error("AI策略引擎未初始化，无法生成策略")
+            return
+        
+        self.logger.info("="*60)
+        self.logger.info("开始生成战斗策略")
+        self.logger.info("="*60)
+        
+        mode = self.config.get("mode", "material_farm")
+        preferences = self.config.get("preferences", {})
+        
+        try:
+            strategy = self.ai_strategy_engine.generate_strategy(mode, preferences)
+            
+            self.logger.info("策略生成完成！")
+            self.logger.info("")
+            
+            # 显示分析结果
+            analysis = strategy.get("analysis", {})
+            self.logger.info("【战斗分析】")
+            for key, value in analysis.items():
+                self.logger.info(f"  {key}: {value}")
+            self.logger.info("")
+            
+            # 显示方案A
+            plan_a = strategy.get("plan_a", {})
+            self.logger.info("【方案A - 稳定】")
+            self.logger.info(f"  名称：{plan_a.get('name')}")
+            self.logger.info(f"  描述：{plan_a.get('description')}")
+            self.logger.info(f"  预计回合数：{plan_a.get('expected_rounds')}")
+            self.logger.info("")
+            
+            # 显示方案B
+            plan_b = strategy.get("plan_b", {})
+            self.logger.info("【方案B - 极限】")
+            self.logger.info(f"  名称：{plan_b.get('name')}")
+            self.logger.info(f"  描述：{plan_b.get('description')}")
+            self.logger.info(f"  预计回合数：{plan_b.get('expected_rounds')}")
+            if plan_b.get("requires_reroll"):
+                reroll = plan_b.get("reroll_condition", {})
+                self.logger.info(f"  需要凹本：")
+                self.logger.info(f"    - 目标角色：{reroll.get('target_character')}")
+                self.logger.info(f"    - 触发时机：{reroll.get('trigger_timing')}")
+                self.logger.info(f"    - 目的：{reroll.get('purpose')}")
+                self.logger.info(f"    - 最大重试：{reroll.get('max_retries')}")
+            self.logger.info("")
+            
+            # 显示推荐
+            recommendation = strategy.get("recommendation", "")
+            self.logger.info(f"【推荐】{recommendation}")
+            self.logger.info("")
+            
+            self.logger.info("="*60)
+            self.logger.info("请选择方案（在config.json中设置preferences.selected_option为A或B）")
+            self.logger.info("然后在游戏中切换到对应模式界面，准备开始自动战斗")
+            self.logger.info("="*60)
+            
+        except Exception as e:
+            self.logger.error(f"策略生成失败：{e}")
 
     def initialize(self):
         """初始化系统"""
         self.logger.info("正在初始化星穹铁道AI自动战斗系统...")
-        # 加载配置与模板
+        
+        # 加载配置
         self.config = load_config()
+        
         # 读取运行模式
-        self.plan_only = bool(self.config.get("run", {}).get("plan_only", False))
+        run_cfg = self.config.get("run", {})
+        self.plan_only = bool(run_cfg.get("plan_only", False))
+        self.scan_only = bool(run_cfg.get("scan_only", False))
+        
+        # 设置AI
         self._setup_ai()
+        
+        # 应用输入设置
         self._apply_input_settings()
-        self._prepare_strategy()
-        if self.plan_only:
-            self.logger.info("已启用仅规划模式：将生成策略与记忆，不会启动自动战斗。")
+        
+        if self.scan_only:
+            self.logger.info("已启用仅扫描模式：将扫描角色和敌人信息并保存")
+        elif self.plan_only:
+            self.logger.info("已启用仅规划模式：将生成策略，不会启动自动战斗")
+        
         self.logger.info("系统初始化完成")
 
     def start_battle(self):
         """开始自动战斗"""
-        self.logger.info("开始自动战斗模式")
+        if not self.ai_decision:
+            self.logger.error("AI决策引擎未初始化，无法开始战斗")
+            return
+        
+        self.logger.info("="*60)
+        self.logger.info("开始AI自动战斗模式")
+        self.logger.info("="*60)
+        self.logger.info("提示：")
+        self.logger.info("  - 请确保已在游戏中切换到战斗模式")
+        self.logger.info("  - AI将实时分析画面并做出决策")
+        self.logger.info("  - 按 Ctrl+C 可以随时停止")
+        self.logger.info("="*60)
+        
         self.is_running = True
-
+        
         try:
             while self.is_running:
                 self.battle_loop()
-                time.sleep(0.1)  # 防止CPU占用过高
-
+                time.sleep(0.5)  # 控制决策频率
+        
         except KeyboardInterrupt:
-            self.logger.info("收到停止信号，正在停止...")
+            self.logger.info("收到停止信号...")
             self.stop_battle()
 
     def stop_battle(self):
         """停止自动战斗"""
         self.is_running = False
         self.logger.info("自动战斗已停止")
+        
+        # 显示统计
+        stats = self.get_statistics()
+        self.logger.info("="*60)
+        self.logger.info("战斗统计")
+        self.logger.info(f"  总战斗数：{stats.get('total_battles', 0)}")
+        self.logger.info(f"  胜利次数：{stats.get('victories', 0)}")
+        self.logger.info(f"  胜率：{stats.get('win_rate', 'N/A')}")
+        self.logger.info("="*60)
 
     def battle_loop(self):
-        """主要战斗循环"""
-        # 1. 图像识别
-        game_data = self.collect_game_data()
-
-        # 2. 决策分析
-        battle_analysis = self.decision_engine.analyze_battle_situation(game_data)
-        action = self.decision_engine.choose_action(battle_analysis)
-
-        # 3. 执行操作
-        self.execute_action(action)
-
-        # 4. 更新状态
-        self.update_battle_status(game_data)
-
-    def collect_game_data(self) -> Dict:
-        """收集游戏数据"""
-        game_data = {
-            "team_health": self.image_recognizer.detect_health_bars(),
-            "skill_cooldowns": self.image_recognizer.detect_skill_cooldowns(),
-            "battle_state": self.image_recognizer.detect_battle_state(),
-            "timestamp": time.time()
-        }
-        return game_data
-
-    def execute_action(self, action: str):
-        """执行决策动作（根据语义动作映射到安全键位）"""
-        self.logger.info(f"执行动作: {action}")
-
-        if "治疗" in action:
-            self.game_controller.use_skill('heal_skill')
-        elif "群体" in action:
-            self.game_controller.use_skill('aoe_skill')
-        elif "单体" in action:
-            self.game_controller.use_skill('single_skill')
-        elif "终结" in action or "大招" in action:
-            try:
-                idx = int((self.config.get("input", {}) or {}).get("preferred_ult_index", 1))
-            except Exception:
-                idx = 1
-            self.game_controller.use_ultimate(max(1, min(4, idx)))
-        else:
-            self.game_controller.attack()
-
-    def update_battle_status(self, game_data: Dict):
-        """更新战斗状态"""
-        battle_state = game_data.get("battle_state", "非战斗")
-
-        if battle_state == "胜利":
-            self.victory_count += 1
-            self.battle_count += 1
-            self.logger.info(f"战斗胜利！总胜利次数: {self.victory_count}")
-            time.sleep(2)  # 等待战斗结束界面
-
-        elif battle_state == "失败":
-            self.battle_count += 1
-            self.logger.info(f"战斗失败！总战斗次数: {self.battle_count}")
+        """AI驱动的战斗循环"""
+        try:
+            # AI做出决策
+            action = self.ai_decision.make_decision()
+            
+            # 执行动作
+            self.ai_decision.execute_action(action, self.game_controller)
+            
+            # 检测战斗结果（简化版，实际可以让AI识别）
+            # TODO: 让AI识别战斗是否结束
+            
+        except Exception as e:
+            self.logger.error(f"战斗循环出错：{e}")
 
     def get_statistics(self) -> Dict:
         """获取战斗统计"""
         if self.battle_count == 0:
             return {"message": "暂无战斗数据"}
-
+        
         win_rate = (self.victory_count / self.battle_count) * 100
         return {
             "total_battles": self.battle_count,
@@ -308,15 +316,48 @@ class StarRailAutoBattle:
 def main():
     """主函数"""
     auto_battle = StarRailAutoBattle()
-
+    
     try:
         auto_battle.initialize()
-        if auto_battle.plan_only:
-            # 仅规划模式下直接退出（已保存策略与记忆）
+        
+        # 根据运行模式执行不同操作
+        if auto_battle.scan_only:
+            # 仅扫描模式
+            auto_battle.scan_characters_and_enemies()
             return
+        
+        if auto_battle.plan_only:
+            # 仅规划模式：先扫描，再生成策略
+            auto_battle.scan_characters_and_enemies()
+            auto_battle.generate_strategy()
+            return
+        
+        # 完整模式：扫描 -> 生成策略 -> 自动战斗
+        if not auto_battle.ai_strategy_engine:
+            auto_battle.logger.error("AI未启用，无法继续")
+            return
+        
+        # 检查是否已有扫描数据
+        if not auto_battle.ai_strategy_engine.characters:
+            auto_battle.logger.info("未找到角色数据，开始扫描...")
+            auto_battle.scan_characters_and_enemies()
+        
+        # 生成策略
+        auto_battle.generate_strategy()
+        
+        # 确认后开始战斗
+        auto_battle.logger.info("准备开始自动战斗...")
+        auto_battle.logger.info("请确保：")
+        auto_battle.logger.info("  1. 已在config.json中选择了方案（A或B）")
+        auto_battle.logger.info("  2. 已在游戏中切换到对应模式界面")
+        auto_battle.logger.info("  3. 已在config.json中启用了输入（enable_inputs: true）")
+        auto_battle.logger.info("")
+        input("按回车键开始自动战斗...")
+        
         auto_battle.start_battle()
+        
     except Exception as e:
-        auto_battle.logger.error(f"程序出错: {e}")
+        auto_battle.logger.error(f"程序出错：{e}", exc_info=True)
     finally:
         auto_battle.stop_battle()
 

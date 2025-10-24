@@ -1,9 +1,9 @@
 """
-星穹铁道AI自动战斗系统 - 决策引擎
+星穹铁道AI自动战斗系统 - 决策引擎（传统规则版本）
 负责战斗策略的制定和决策
+注意：此为旧版基于规则的决策引擎，新版本请使用 AIBattleDecision
 """
 
-import numpy as np
 from typing import List, Dict, Optional
 from enum import Enum
 import logging

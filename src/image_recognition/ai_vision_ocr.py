@@ -15,9 +15,18 @@ from typing import List, Optional, Tuple
 import base64
 import cv2
 import numpy as np
-import pyautogui
 
 from src.ai import AIClient
+
+# Lazy import to avoid display issues
+_pyautogui = None
+
+def _get_pyautogui():
+    global _pyautogui
+    if _pyautogui is None:
+        import pyautogui
+        _pyautogui = pyautogui
+    return _pyautogui
 
 
 DEFAULT_VISION_PROMPT = (
@@ -54,6 +63,7 @@ class AIVisionOCR:
             return f"[AI 视觉识别失败: {e}]"
 
     def capture_region(self, region: Tuple[int, int, int, int]) -> np.ndarray:
+        pyautogui = _get_pyautogui()
         ss = pyautogui.screenshot(region=region)
         return cv2.cvtColor(np.array(ss), cv2.COLOR_RGB2BGR)
 

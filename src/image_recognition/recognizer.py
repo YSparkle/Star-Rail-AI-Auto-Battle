@@ -5,18 +5,34 @@
 
 import cv2
 import numpy as np
-import pyautogui
 import time
 from typing import Tuple, List, Dict
 import logging
+
+# Lazy import to avoid display issues
+_pyautogui = None
+
+def _get_pyautogui():
+    global _pyautogui
+    if _pyautogui is None:
+        import pyautogui
+        _pyautogui = pyautogui
+    return _pyautogui
 
 class ImageRecognizer:
     """图像识别核心类"""
 
     def __init__(self):
-        self.screen_width, self.screen_height = pyautogui.size()
+        self.screen_width = None
+        self.screen_height = None
         self.templates = {}  # 存储模板图像
         self.logger = logging.getLogger(__name__)
+    
+    def _ensure_screen_size(self):
+        """Lazy initialization of screen size"""
+        if self.screen_width is None:
+            pyautogui = _get_pyautogui()
+            self.screen_width, self.screen_height = pyautogui.size()
 
     def load_templates(self, template_dir: str):
         """加载模板图像"""
@@ -25,6 +41,7 @@ class ImageRecognizer:
 
     def capture_screen(self) -> np.ndarray:
         """截取屏幕图像"""
+        pyautogui = _get_pyautogui()
         screenshot = pyautogui.screenshot()
         return cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
 
