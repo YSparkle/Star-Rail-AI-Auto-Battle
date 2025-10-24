@@ -9,8 +9,25 @@ import time
 from typing import Tuple, Dict, Optional
 import logging
 
-import pyautogui
-from pynput import mouse, keyboard  # 保留以便后续扩展录制/监听
+# Lazy import to avoid display issues
+_pyautogui = None
+_pynput_mouse = None
+_pynput_keyboard = None
+
+def _get_pyautogui():
+    global _pyautogui
+    if _pyautogui is None:
+        import pyautogui
+        _pyautogui = pyautogui
+    return _pyautogui
+
+def _get_pynput():
+    global _pynput_mouse, _pynput_keyboard
+    if _pynput_mouse is None or _pynput_keyboard is None:
+        from pynput import mouse, keyboard
+        _pynput_mouse = mouse
+        _pynput_keyboard = keyboard
+    return _pynput_mouse, _pynput_keyboard
 
 
 class GameController:
@@ -34,27 +51,33 @@ class GameController:
     }
 
     DEFAULT_BINDS = {
-        "attack": "q",
-        "single_skill": "e",
-        "aoe_skill": "e",
-        "heal_skill": "e",
-        # 无独立 'ultimate' 键位，按队伍位序使用 1-4 释放
+        "basic_attack": "q",  # 普通攻击
+        "skill": "e",  # 战技（每个角色效果不同，由AI判断）
+        "ultimate_1": "1",  # 第1个角色释放大招
+        "ultimate_2": "2",  # 第2个角色释放大招
+        "ultimate_3": "3",  # 第3个角色释放大招
+        "ultimate_4": "4",  # 第4个角色释放大招
+        "target_left": "left",  # 切换目标向左
+        "target_right": "right",  # 切换目标向右
         "interact": "f",
         "open_menu": "esc",
         "confirm": "enter",
         "cancel": "backspace",
-        "switch_1": "1",
-        "switch_2": "2",
-        "switch_3": "3",
-        "switch_4": "4",
     }
 
     def __init__(self, keybinds: Optional[Dict[str, str]] = None, enable_inputs: bool = False):
         self.logger = logging.getLogger(__name__)
-        self.screen_width, self.screen_height = pyautogui.size()
+        self.screen_width = None
+        self.screen_height = None
         self.current_mouse_pos = (0, 0)
         self.enable_inputs = enable_inputs
         self.keybinds: Dict[str, str] = {**self.DEFAULT_BINDS, **(keybinds or {})}
+    
+    def _ensure_screen_size(self):
+        """Lazy initialization of screen size"""
+        if self.screen_width is None:
+            pyautogui = _get_pyautogui()
+            self.screen_width, self.screen_height = pyautogui.size()
 
     # ---- 设置与安全 ----
     def update_settings(self, keybinds: Optional[Dict[str, str]] = None, enable_inputs: Optional[bool] = None):
@@ -76,19 +99,23 @@ class GameController:
 
     # ---- 鼠标 ----
     def move_to(self, x: int, y: int, duration: float = 0.2):
+        pyautogui = _get_pyautogui()
         pyautogui.moveTo(x, y, duration=duration)
         self.current_mouse_pos = (x, y)
 
     def click(self, button: str = "left"):
+        pyautogui = _get_pyautogui()
         pyautogui.click(button=button)
 
     def right_click(self):
         self.click("right")
 
     def double_click(self):
+        pyautogui = _get_pyautogui()
         pyautogui.doubleClick()
 
     def drag(self, start_x: int, start_y: int, end_x: int, end_y: int, duration: float = 0.6):
+        pyautogui = _get_pyautogui()
         pyautogui.drag(end_x - start_x, end_y - start_y, duration, button='left')
 
     # ---- 键盘 ----
@@ -99,12 +126,14 @@ class GameController:
         if not self._is_key_safe(key):
             self.logger.warning(f"[安全拦截] 忽略不安全按键: {key}")
             return
+        pyautogui = _get_pyautogui()
         pyautogui.press(key)
 
     def hold_key(self, key: str, duration: float = 0.1):
         if not self.enable_inputs or not self._is_key_safe(key):
             self.logger.debug(f"[输入未启用/不安全] 忽略长按: {key}")
             return
+        pyautogui = _get_pyautogui()
         pyautogui.keyDown(key)
         time.sleep(max(0.0, duration))
         pyautogui.keyUp(key)
@@ -113,6 +142,7 @@ class GameController:
         if not self.enable_inputs:
             self.logger.debug("[输入未启用] 忽略文本输入")
             return
+        pyautogui = _get_pyautogui()
         pyautogui.write(text, interval=interval)
 
     # ---- 语义动作 ----
@@ -124,27 +154,38 @@ class GameController:
         self.press_key(key)
 
     # 游戏特定操作（基于语义动作）
-    def use_skill(self, skill_action: str):
-        """skill_action 可为 'single_skill'/'aoe_skill'/'heal_skill' 等（战技/普攻）"""
-        self.press_action(skill_action, default_key=self.DEFAULT_BINDS.get(skill_action, "e"))
+    def use_basic_attack(self):
+        """使用普通攻击（Q键）"""
+        self.press_action("basic_attack", default_key="q")
 
-    def switch_character(self, character_index: int):
-        if 1 <= character_index <= 4:
-            self.press_action(f"switch_{character_index}", default_key=str(character_index))
+    def use_skill(self):
+        """使用战技（E键）- 每个角色的战技效果不同，由AI决策"""
+        self.press_action("skill", default_key="e")
 
-    def use_ultimate(self, character_index: int = 1):
-        """释放终结技：根据队伍序号 1-4 按对应数字键。"""
+    def use_ultimate(self, character_index: int):
+        """
+        释放终结技：根据队伍序号 1-4 按对应数字键
+        1 = 第1个角色大招
+        2 = 第2个角色大招
+        3 = 第3个角色大招
+        4 = 第4个角色大招
+        """
         if 1 <= character_index <= 4:
-            self.press_action(f"switch_{character_index}", default_key=str(character_index))
+            self.press_action(f"ultimate_{character_index}", default_key=str(character_index))
+        else:
+            self.logger.warning(f"无效的角色索引：{character_index}，必须在1-4之间")
 
     def select_target_left(self):
-        self.press_key("left")
+        """切换目标向左（左方向键）"""
+        self.press_action("target_left", default_key="left")
 
     def select_target_right(self):
-        self.press_key("right")
+        """切换目标向右（右方向键）"""
+        self.press_action("target_right", default_key="right")
 
     def attack(self):
-        self.press_action("attack", default_key="q")
+        """普通攻击的别名"""
+        self.use_basic_attack()
 
     def open_menu(self):
         self.press_action("open_menu", default_key="esc")
@@ -154,12 +195,15 @@ class GameController:
 
     # ---- 截图/像素 ----
     def screenshot(self, region: Tuple[int, int, int, int] = None) -> object:
+        pyautogui = _get_pyautogui()
         if region:
             return pyautogui.screenshot(region=region)
         return pyautogui.screenshot()
 
     def get_mouse_position(self) -> Tuple[int, int]:
+        pyautogui = _get_pyautogui()
         return pyautogui.position()
 
     def get_pixel_color(self, x: int, y: int):
+        pyautogui = _get_pyautogui()
         return pyautogui.pixel(x, y)

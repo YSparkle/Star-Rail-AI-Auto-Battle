@@ -5,55 +5,49 @@
     "api_key": "REPLACE_WITH_YOUR_KEY",
     "base_url": "https://api.openai.com/v1",
     "model": "gpt-4o-mini",
-    "system_prompt": "你是《崩坏：星穹铁道》的战斗策略专家。请依据用户提供的角色/遗器/光锥以及敌人与模式，给出最优策略，并提供可选方案A/B（稳定 vs 极限）。",
-    "timeout": 60,
+    "system_prompt": "你是《崩坏：星穹铁道》的战斗策略专家。请依据用户提供的角色信息和敌人信息，制定最优战斗策略。",
+    "timeout": 120,
     "endpoint": null,
     "headers": {}
   },
   "run": {
-    "plan_only": false
+    "plan_only": false,
+    "scan_only": false
   },
   "input": {
     "enable_inputs": false,
-    "preferred_ult_index": 1,
     "keybinds": {
-      "attack": "q",
-      "single_skill": "e",
-      "aoe_skill": "e",
-      "heal_skill": "e",
+      "basic_attack": "q",
+      "skill": "e",
+      "ultimate_1": "1",
+      "ultimate_2": "2",
+      "ultimate_3": "3",
+      "ultimate_4": "4",
+      "target_left": "left",
+      "target_right": "right",
       "interact": "f",
       "open_menu": "esc",
       "confirm": "enter",
-      "cancel": "backspace",
-      "switch_1": "1",
-      "switch_2": "2",
-      "switch_3": "3",
-      "switch_4": "4"
+      "cancel": "backspace"
     }
-  },
-  "ocr": {
-    "provider": "ai_vision",
-    "tesseract_path": "C:/Program Files/Tesseract-OCR/tesseract.exe",
-    "lang": "chi_sim+eng",
-    "psm": 6,
-    "oem": 3,
-    "threshold": 180,
-    "invert": false,
-    "blur": 1,
-    "vision_prompt": "请阅读这张游戏截图中指定区域的所有可见文字，尽量按自然阅读顺序输出，保留数值、百分比、词条与段落。"
   },
   "ui_regions": {
     "character_stats": [100, 100, 400, 300],
     "skill_buttons": [[300, 800], [420, 800], [540, 800], [660, 800]],
     "skill_detail_region": [600, 200, 600, 600],
     "enemy_panel": [1000, 100, 400, 300],
-    "detail_button": null
+    "detail_button": [800, 400]
   },
   "mode": "material_farm",
   "preferences": {
     "allow_reroll": true,
     "selected_option": "A",
-    "reroll_settings": { "max_retries": 5, "bait_target": "主C示例", "bait_condition": "第一波吃单体" }
+    "reroll_settings": {
+      "max_retries": 5,
+      "bait_target": "主C示例",
+      "bait_condition": "第一波吃单体",
+      "purpose": "回能触发反击"
+    }
   },
   "roster": [
     {
@@ -61,20 +55,11 @@
       "path": "Hunt",
       "element": "Quantum",
       "level": 80,
-      "eidolon": 0,
-      "base_stats": { "atk": 1000, "hp": 1200, "def": 600, "spd": 110 },
-      "relics": { "atk_percent": 0.58, "atk_flat": 120, "crit_rate": 0.35, "crit_dmg": 0.7, "speed": 12, "energy_regen": 0.12 },
-      "light_cone": { "name": "示例光锥", "level": 80, "superimpose": 1, "stats": { "atk_percent": 0.1, "crit_rate": 0.08 } },
-      "skill_levels": { "basic": 6, "skill": 10, "ult": 10, "talent": 10 }
+      "eidolon": 0
     }
   ],
   "enemy": {
     "name": "敌人示例",
-    "level": 90,
-    "weaknesses": ["Quantum", "Imaginary"],
-    "resistances": {"Quantum": 0.2, "Fire": 0.1},
-    "buffs": ["受击增伤窗口"],
-    "base_stats": { "hp": 300000, "def": 800, "spd": 98, "toughness": 240 },
-    "notes": "可根据实际关卡填写祝福/环境增益"
+    "level": 90
   }
 }

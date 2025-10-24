@@ -16,7 +16,16 @@ from typing import Dict, Optional, Tuple, Any
 
 import numpy as np
 import cv2
-import pyautogui
+
+# Lazy import to avoid display issues
+_pyautogui = None
+
+def _get_pyautogui():
+    global _pyautogui
+    if _pyautogui is None:
+        import pyautogui
+        _pyautogui = pyautogui
+    return _pyautogui
 
 try:
     import pytesseract  # type: ignore
@@ -72,6 +81,7 @@ class OCR:
 
     def capture_region(self, region: Tuple[int, int, int, int]) -> np.ndarray:
         # region: (left, top, width, height)
+        pyautogui = _get_pyautogui()
         ss = pyautogui.screenshot(region=region)
         arr = cv2.cvtColor(np.array(ss), cv2.COLOR_RGB2BGR)
         return arr
