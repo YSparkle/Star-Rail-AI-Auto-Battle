@@ -51,12 +51,12 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # 输入与键位
     "input": {
         "enable_inputs": False,
+        "preferred_ult_index": 1,
         "keybinds": {
-            "attack": "space",
-            "single_skill": "space",
+            "attack": "q",
+            "single_skill": "e",
             "aoe_skill": "e",
-            "heal_skill": "q",
-            "ultimate": "t",
+            "heal_skill": "e",
             "interact": "f",
             "open_menu": "esc",
             "confirm": "enter",
